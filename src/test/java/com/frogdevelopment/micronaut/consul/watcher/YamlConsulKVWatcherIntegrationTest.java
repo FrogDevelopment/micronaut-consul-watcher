@@ -1,37 +1,43 @@
 package com.frogdevelopment.micronaut.consul.watcher;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-import com.frogdevelopment.micronaut.consul.ReactorConsulClient;
-
 import io.micronaut.context.DefaultApplicationContextBuilder;
 import io.micronaut.context.annotation.Property;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
+import lombok.SneakyThrows;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.TestInstance;
+import org.testcontainers.containers.GenericContainer;
 
-import com.frogdevelopment.micronaut.consul.ConsulTestHelper;
+import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @MicronautTest(contextBuilder = YamlConsulKVWatcherIntegrationTest.CustomContextBuilder.class)
 @Property(name = "consul.client.config.format", value = "yaml")
-@Property(name = "consul.watcher.enabled", value = "true")
-@Property(name = "micronaut.config-client.enabled", value = "true")
 class YamlConsulKVWatcherIntegrationTest extends BaseConsulKVWatcherIntegrationTest {
 
     public static class CustomContextBuilder extends DefaultApplicationContextBuilder {
 
         public CustomContextBuilder() {
-            updateConsul(ConsulTestHelper.getConsulClient(), "foo", "bar");
+            doUpdateConsul("foo", "bar");
         }
     }
 
-    private static final String APPLICATION_YAML = "my:\n  key:\n    to_be_updated: %s\n \nan.other.property: %s\n";
+    @Language("YAML")
+    private static final String APPLICATION_YAML = """
+                                        my:
+                                          key:
+                                            to_be_updated: %s
+                                        
+                                        an.other.property: %s""";
 
     @Override
     protected void updateConsul(String foo, String bar) {
-        updateConsul(consulClient, foo, bar);
+        doUpdateConsul(foo, bar);
     }
 
-    private static void updateConsul(ReactorConsulClient consulClient, String foo, String bar) {
-        consulClient.putValue(ROOT + "application", String.format(APPLICATION_YAML, foo, bar)).block();
+    @SneakyThrows
+    private static void doUpdateConsul(String foo, String bar) {
+        consulKvPut(ROOT + "application", String.format(APPLICATION_YAML, foo, bar));
     }
 
     @Override

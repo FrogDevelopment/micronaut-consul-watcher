@@ -1,38 +1,59 @@
 package com.frogdevelopment.micronaut.consul.watcher;
 
-import static org.assertj.core.api.SoftAssertions.assertSoftly;
+import io.micronaut.context.BeanContext;
+import io.micronaut.context.annotation.Value;
+import io.micronaut.core.annotation.NonNull;
+import io.micronaut.runtime.context.scope.Refreshable;
+import io.micronaut.test.support.TestPropertyProvider;
+import jakarta.inject.Inject;
+import lombok.SneakyThrows;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.awaitility.Awaitility;
+import org.junit.jupiter.api.*;
+import org.testcontainers.consul.ConsulContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import jakarta.inject.Inject;
+import static org.assertj.core.api.SoftAssertions.assertSoftly;
 
-import org.apache.commons.lang3.RandomStringUtils;
-import org.awaitility.Awaitility;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
-
-import com.frogdevelopment.micronaut.consul.ReactorConsulClient;
-
-import io.micronaut.context.BeanContext;
-import io.micronaut.context.annotation.Value;
-import io.micronaut.runtime.context.scope.Refreshable;
-
+@Testcontainers
 @Tag("integrationTest")
-abstract class BaseConsulKVWatcherIntegrationTest {
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+abstract class BaseConsulKVWatcherIntegrationTest implements TestPropertyProvider {
 
     protected static final String ROOT = "test/";
 
     @Inject
-    protected ReactorConsulClient consulClient;
-
-    @Inject
-    BeanContext beanContext;
+    private BeanContext beanContext;
 
     @Inject
     private ConsulKVWatcher consulKVWatcher;
+
+    @Container
+    protected static final ConsulContainer CONSUL_CONTAINER = new ConsulContainer("hashicorp/consul:1.18.1");
+
+    @Override
+    public @NonNull Map<String, String> getProperties() {
+        final var consulHost = CONSUL_CONTAINER.getHost();
+        final var consulPort = CONSUL_CONTAINER.getMappedPort(8500);
+        return Map.of(
+                "consul.client.registration.enabled", "false",
+                "micronaut.config-client.enabled", "true",
+                "consul.client.host", consulHost,
+                "consul.client.port", String.valueOf(consulPort),
+                "consul.client.config.path", "test",
+                "consul.watcher.enabled", "true"
+        );
+    }
+
+    @SneakyThrows
+    protected static void consulKvPut(String key, String data) {
+        CONSUL_CONTAINER.execInContainer("consul", "kv", "put", key, data);
+    }
 
     protected abstract void updateConsul(String foo, String bar) throws ExecutionException, InterruptedException;
 
@@ -46,7 +67,7 @@ abstract class BaseConsulKVWatcherIntegrationTest {
     @AfterEach
     void cleanUp() {
         consulKVWatcher.stop();
-        consulClient.deleteValues(ROOT).block();
+        CONSUL_CONTAINER.withConsulCommand("kv delete " + ROOT);
     }
 
     @Test
@@ -75,10 +96,10 @@ abstract class BaseConsulKVWatcherIntegrationTest {
     @Refreshable
     public static class RefreshableBean {
 
-        @Value("${my.key.to_be_updated:foo}")
+        @Value("${my.key.to_be_updated}")
         public String keyToBeUpdated;
 
-        @Value("${an.other.property:bar}")
+        @Value("${an.other.property}")
         public String otherKey;
 
     }

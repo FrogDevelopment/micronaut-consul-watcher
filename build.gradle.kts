@@ -13,7 +13,6 @@ dependencies {
     val vertxConsul = "4.5.9"
     val commonsCollections4 = "4.4"
     val commonsLang3 = "3.16.0"
-    val awaitility = "4.2.2"
 
     compileOnly(mn.lombok)
     annotationProcessor(mn.lombok)
@@ -29,14 +28,20 @@ dependencies {
     implementation(mn.guava)
     implementation(mn.snakeyaml)
 
+    val awaitility = "4.2.2"
+    val testcontainers = "1.20.1"
+
     testImplementation(mn.micronaut.http.client)
     testImplementation(mn.assertj.core)
     testImplementation(mn.mockito.junit.jupiter)
-    testImplementation("org.awaitility:awaitility:${awaitility}")
     testImplementation(mn.logback.classic)
+    testImplementation("org.awaitility:awaitility:${awaitility}")
+    testImplementation("org.testcontainers:junit-jupiter:$testcontainers")
+    testImplementation("org.testcontainers:consul:$testcontainers")
 
     testAnnotationProcessor(mn.lombok)
     testCompileOnly(mn.lombok)
+    testRuntimeOnly(mn.micronaut.jackson.databind)
 }
 
 micronaut {

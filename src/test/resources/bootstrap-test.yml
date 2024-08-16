@@ -4,14 +4,3 @@ micronaut:
 
   config-client:
     enabled: false
-
-# fixme use test-container
-consul:
-  client:
-    registration:
-      enabled: false
-    host: localhost
-    port: 8500
-    config:
-      path: test
-
