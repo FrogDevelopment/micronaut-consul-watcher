@@ -12,7 +12,7 @@ repositories {
 dependencies {
     val vertxConsul = "4.5.9"
     val commonsCollections4 = "4.4"
-    val commonsLang3 = "3.16.0"
+    val commonsLang3 = "3.17.0"
     val awaitility = "4.2.2"
 
     compileOnly(mn.lombok)
