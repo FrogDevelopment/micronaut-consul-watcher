@@ -5,10 +5,7 @@ import io.micronaut.context.annotation.Property;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import lombok.SneakyThrows;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.TestInstance;
-import org.testcontainers.containers.GenericContainer;
 
-import static org.assertj.core.api.Assertions.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @MicronautTest(contextBuilder = YamlConsulKVWatcherIntegrationTest.CustomContextBuilder.class)

@@ -1,19 +1,18 @@
 package com.frogdevelopment.micronaut.consul.watcher;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-import java.util.Map;
-
+import io.vertx.core.Vertx;
+import io.vertx.ext.consul.ConsulClientOptions;
+import io.vertx.ext.consul.KeyValue;
+import io.vertx.ext.consul.impl.WatchImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import io.vertx.core.Vertx;
-import io.vertx.ext.consul.ConsulClientOptions;
-import io.vertx.ext.consul.KeyValue;
-import io.vertx.ext.consul.impl.WatchImpl;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(MockitoExtension.class)
 class YamlConsulKVWatcherTest {

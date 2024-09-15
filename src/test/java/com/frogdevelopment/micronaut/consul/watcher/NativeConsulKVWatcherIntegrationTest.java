@@ -1,11 +1,11 @@
 package com.frogdevelopment.micronaut.consul.watcher;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import io.micronaut.context.DefaultApplicationContextBuilder;
 import io.micronaut.context.annotation.Property;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import lombok.SneakyThrows;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @MicronautTest(contextBuilder = NativeConsulKVWatcherIntegrationTest.CustomContextBuilder.class)
 @Property(name = "consul.client.config.format", value = "native")

@@ -1,21 +1,7 @@
 package com.frogdevelopment.micronaut.consul.watcher;
 
-import static io.micronaut.context.env.Environment.DEFAULT_NAME;
-import static io.micronaut.discovery.config.ConfigDiscoveryConfiguration.DEFAULT_PATH;
-
-import lombok.RequiredArgsConstructor;
-
-import java.util.*;
-import java.util.stream.Collectors;
-
-import jakarta.annotation.Nonnull;
-import jakarta.annotation.Nullable;
-
-import org.slf4j.Logger;
-
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
-
 import io.micronaut.context.env.Environment;
 import io.micronaut.context.env.PropertySource;
 import io.micronaut.context.event.ApplicationEventPublisher;
@@ -27,6 +13,16 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.consul.ConsulClientOptions;
 import io.vertx.ext.consul.Watch;
 import io.vertx.ext.consul.WatchResult;
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static io.micronaut.context.env.Environment.DEFAULT_NAME;
+import static io.micronaut.discovery.config.ConfigDiscoveryConfiguration.DEFAULT_PATH;
 
 @RequiredArgsConstructor
 abstract class AbstractConsulKVWatcher<V> implements ConsulKVWatcher {

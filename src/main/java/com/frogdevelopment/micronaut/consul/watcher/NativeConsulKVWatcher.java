@@ -1,16 +1,5 @@
 package com.frogdevelopment.micronaut.consul.watcher;
 
-import lombok.extern.slf4j.Slf4j;
-
-import java.util.Collections;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import jakarta.annotation.Nonnull;
-import jakarta.annotation.Nullable;
-
-import org.slf4j.Logger;
-
 import io.micronaut.context.env.Environment;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.discovery.consul.ConsulConfiguration;
@@ -20,6 +9,14 @@ import io.vertx.ext.consul.ConsulClientOptions;
 import io.vertx.ext.consul.KeyValue;
 import io.vertx.ext.consul.KeyValueList;
 import io.vertx.ext.consul.Watch;
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+
+import java.util.Collections;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class NativeConsulKVWatcher extends AbstractConsulKVWatcher<KeyValueList> {
