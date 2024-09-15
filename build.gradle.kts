@@ -10,11 +10,13 @@ repositories {
 }
 
 dependencies {
-    val vertxConsul = "4.5.9"
+    val vertxConsul = "4.5.10"
     val commonsCollections4 = "4.4"
-    val commonsLang3 = "3.16.0"
+    val commonsLang3 = "3.17.0"
 
     compileOnly(mn.lombok)
+    compileOnly(mn.micronaut.serde.jackson)
+
     annotationProcessor(mn.lombok)
     annotationProcessor(mn.micronaut.inject.java)
     annotationProcessor(mn.micronaut.serde.processor)
@@ -41,7 +43,7 @@ dependencies {
 
     testAnnotationProcessor(mn.lombok)
     testCompileOnly(mn.lombok)
-    testRuntimeOnly(mn.micronaut.jackson.databind)
+    testRuntimeOnly(mn.micronaut.serde.jackson)
 }
 
 micronaut {

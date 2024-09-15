@@ -5,10 +5,7 @@ import static io.micronaut.discovery.config.ConfigDiscoveryConfiguration.DEFAULT
 
 import lombok.RequiredArgsConstructor;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import jakarta.annotation.Nonnull;
@@ -119,8 +116,8 @@ abstract class AbstractConsulKVWatcher<V> implements ConsulKVWatcher {
     protected abstract Map<String, Object> toProperties(final String key, @Nullable final V value);
 
     private synchronized void handleChanges(final String key, @Nonnull final V previous, @Nonnull final V next) {
-        final var previousProperties = toProperties(key, previous);
-        final var nextProperties = toProperties(key, next);
+        final var previousProperties = Collections.unmodifiableMap(toProperties(key, previous));
+        final var nextProperties = Collections.unmodifiableMap(toProperties(key, next));
         try {
             final var difference = Maps.difference(previousProperties, nextProperties);
             if (!difference.areEqual()) {

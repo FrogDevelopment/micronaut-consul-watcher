@@ -1,7 +1,7 @@
 package com.frogdevelopment.micronaut.consul.watcher;
 
+import io.micronaut.context.BeanProvider;
 import io.micronaut.context.annotation.Bean;
-import io.micronaut.context.annotation.BootstrapContextCompatible;
 import io.micronaut.context.annotation.Context;
 import io.micronaut.context.annotation.Factory;
 import io.micronaut.context.annotation.Primary;
@@ -9,6 +9,7 @@ import io.micronaut.context.env.Environment;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.discovery.consul.ConsulConfiguration;
 import io.micronaut.runtime.context.scope.refresh.RefreshEvent;
+import io.micronaut.serde.ObjectMapper;
 import io.vertx.core.Vertx;
 import io.vertx.ext.consul.ConsulClientOptions;
 
@@ -24,9 +25,10 @@ public class ConsulWatcherFactory {
 
     @Context
     ConsulKVWatcher consulKVWatcher(final Environment environment,
-            final ApplicationEventPublisher<RefreshEvent> eventPublisher,
-            final ConsulConfiguration consulConfiguration,
-            final Vertx vertx) {
+                                    final ApplicationEventPublisher<RefreshEvent> eventPublisher,
+                                    final ConsulConfiguration consulConfiguration,
+                                    final Vertx vertx,
+                                    final BeanProvider<ObjectMapper> objectMapperBeanProvider) {
 
         final var consulClientOptions = new ConsulClientOptions()
                 .setHost(consulConfiguration.getHost())
@@ -39,7 +41,9 @@ public class ConsulWatcherFactory {
         final var format = consulConfiguration.getConfiguration().getFormat();
         return switch (format) {
             case NATIVE -> new NativeConsulKVWatcher(environment, eventPublisher, consulConfiguration, vertx, consulClientOptions);
-            case YAML, PROPERTIES -> new YamlConsulKVWatcher(environment, eventPublisher, consulConfiguration, vertx, consulClientOptions);
+            case YAML -> new YamlConsulKVWatcher(environment, eventPublisher, consulConfiguration, vertx, consulClientOptions);
+            case PROPERTIES -> new PropertiesConsulKVWatcher(environment, eventPublisher, consulConfiguration, vertx, consulClientOptions);
+            case JSON -> new JsonConsulKVWatcher(environment, eventPublisher, consulConfiguration, vertx, consulClientOptions, objectMapperBeanProvider.get());
             default -> throw new UnsupportedOperationException("Unhandled configuration format: " + format);
         };
     }
