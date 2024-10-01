@@ -31,7 +31,7 @@ dependencies {
     implementation(mn.snakeyaml)
 
     val awaitility = "4.2.2"
-    val testcontainers = "1.20.1"
+    val testcontainers = "1.20.2"
 
     testImplementation(mn.micronaut.http.client)
     testImplementation(mn.assertj.core)
