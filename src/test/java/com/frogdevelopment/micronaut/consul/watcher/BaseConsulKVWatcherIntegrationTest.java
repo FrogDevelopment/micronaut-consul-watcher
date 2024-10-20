@@ -59,14 +59,8 @@ abstract class BaseConsulKVWatcherIntegrationTest implements TestPropertyProvide
 
     protected abstract void assertInstanceOfWatcher(ConsulKVWatcher consulKVWatcher);
 
-    @BeforeEach
-    void setUp() {
-        consulKVWatcher.start();
-    }
-
     @AfterEach
     void cleanUp() {
-        consulKVWatcher.stop();
         CONSUL_CONTAINER.withConsulCommand("kv delete " + ROOT);
     }
 
