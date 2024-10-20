@@ -10,7 +10,7 @@ repositories {
 }
 
 dependencies {
-    val vertxConsul = "4.5.10"
+    val vertxConsul = mn.versions.vertx.get()
     val commonsCollections4 = "4.4"
     val commonsLang3 = "3.17.0"
 
@@ -31,7 +31,7 @@ dependencies {
     implementation(mn.snakeyaml)
 
     val awaitility = "4.2.2"
-    val testcontainers = "1.20.1"
+    val testcontainers = mn.versions.testcontainers.asProvider().get()
 
     testImplementation(mn.micronaut.http.client)
     testImplementation(mn.assertj.core)
@@ -39,7 +39,7 @@ dependencies {
     testImplementation(mn.logback.classic)
     testImplementation("org.awaitility:awaitility:${awaitility}")
     testImplementation("org.testcontainers:junit-jupiter:$testcontainers")
-    testImplementation("org.testcontainers:consul:$testcontainers")
+    testImplementation(mn.testcontainers.consul)
 
     testAnnotationProcessor(mn.lombok)
     testCompileOnly(mn.lombok)
