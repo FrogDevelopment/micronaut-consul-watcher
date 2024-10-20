@@ -195,8 +195,7 @@ abstract class AbstractConsulKVWatcher<V> implements ConsulKVWatcher {
         final var changes = difference.entriesDiffering()
                 .entrySet()
                 .stream()
-                .map(entry -> Map.entry(entry.getKey(), entry.getValue().leftValue()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().leftValue()));
         eventPublisher.publishEvent(new RefreshEvent(changes));
     }
 
@@ -207,6 +206,7 @@ abstract class AbstractConsulKVWatcher<V> implements ConsulKVWatcher {
     @Override
     public synchronized void stop() {
         if (isStarted) {
+            getLogger().info("Stopping Consul changes monitoring");
             watchers.forEach((key, watcher) -> {
                 getLogger().debug("Stop watching [{}]", key);
                 watcher.stop();
