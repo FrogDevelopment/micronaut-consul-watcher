@@ -1,9 +1,11 @@
 plugins {
     id("io.micronaut.minimal.library") version "4.4.4"
+    id("com.frogdevelopment.version-convention")
+    id("com.frogdevelopment.jreleaser.deploy-convention")
+    id("com.frogdevelopment.jreleaser.publish-convention")
 }
 
 group = "com.frogdevelopment.micronaut.consul"
-version = "1.0.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
