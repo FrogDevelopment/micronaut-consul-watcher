@@ -1,12 +1,5 @@
 package com.frogdevelopment.micronaut.consul.watch;
 
-import lombok.extern.slf4j.Slf4j;
-
-import java.util.List;
-import java.util.concurrent.ScheduledFuture;
-import jakarta.inject.Named;
-import jakarta.inject.Singleton;
-
 import com.frogdevelopment.micronaut.consul.watch.watcher.Watcher;
 
 import io.micronaut.context.event.ShutdownEvent;
@@ -15,10 +8,17 @@ import io.micronaut.runtime.event.annotation.EventListener;
 import io.micronaut.scheduling.TaskExecutors;
 import io.micronaut.scheduling.TaskScheduler;
 
+import jakarta.inject.Named;
+import jakarta.inject.Singleton;
+
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.concurrent.ScheduledFuture;
+
 /**
  * Schedule the polling for all watcher in 1 unique Runnable.
  *
- * @author benoit.legall
+ * @author LE GALL Benoît
  * @since 1.0.0
  */
 @Slf4j
@@ -27,7 +27,7 @@ final class WatchScheduler {
 
     private final TaskScheduler taskScheduler;
     private final WatchConfiguration watchConfiguration;
-    private final List<Watcher> watchers;
+    private final Watcher watcher;
 
     private volatile boolean started = false;
     private volatile boolean stopped = false;
@@ -36,28 +36,26 @@ final class WatchScheduler {
     /**
      * @param taskScheduler      taskScheduler
      * @param watchConfiguration configuration for the scheduled task
-     * @param watchers           List of watcher to schedule
+     * @param watcher            {@link Watcher} to schedule
      */
     WatchScheduler(@Named(TaskExecutors.SCHEDULED) final TaskScheduler taskScheduler,
                    final WatchConfiguration watchConfiguration,
-                   final List<Watcher> watchers) {
+                   final Watcher watcher) {
         this.taskScheduler = taskScheduler;
         this.watchConfiguration = watchConfiguration;
-        this.watchers = watchers;
+        this.watcher = watcher;
     }
 
     /**
      * Schedule the polling task
-     *
-     * @param startupEvent event sent when the application is started
      */
     @EventListener
-    public synchronized void start(final StartupEvent startupEvent) {
+    public synchronized void start(final StartupEvent ignored) {
         if (!started) {
-            scheduledFuture = taskScheduler.scheduleAtFixedRate(
+            scheduledFuture = taskScheduler.scheduleWithFixedDelay(
                     watchConfiguration.getInitialDelay(),
                     watchConfiguration.getPeriod(),
-                    watch());
+                    watcher::watchKVs);
             started = true;
         } else {
             throw new IllegalStateException("Watcher scheduler already started");
@@ -65,17 +63,11 @@ final class WatchScheduler {
     }
 
 
-    private Runnable watch() {
-        return () -> watchers.forEach(Watcher::watchKvPath);
-    }
-
     /**
      * Cancel the scheduled task
-     *
-     * @param shutdownEvent event sent when application will be shutdown
      */
     @EventListener
-    public synchronized void stop(final ShutdownEvent shutdownEvent) {
+    public synchronized void stop(final ShutdownEvent ignored) {
         if (!started) {
             log.warn("You tried to stop an unstarted Watcher scheduler");
             return;

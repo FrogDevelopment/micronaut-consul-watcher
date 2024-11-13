@@ -5,54 +5,71 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
-import java.util.List;
 import java.util.concurrent.ScheduledFuture;
 
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 
 import com.frogdevelopment.micronaut.consul.watch.watcher.Watcher;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import io.micronaut.scheduling.TaskScheduler;
 
 @ExtendWith(MockitoExtension.class)
 class WatchSchedulerTest {
 
+    @SuppressWarnings("LoggerInitializedWithForeignClass")
+    private final Logger watcherLogger = (Logger) LoggerFactory.getLogger(WatchScheduler.class);
+
+    @InjectMocks
     private WatchScheduler watchScheduler;
 
     @Mock
     private TaskScheduler taskScheduler;
-
+    @Spy
     private final WatchConfiguration watchConfiguration = new WatchConfiguration();
+    @Mock
+    private Watcher watcher;
 
-    @Mock
-    private Watcher watch_1;
-    @Mock
-    private Watcher watch_2;
-    @Mock
-    private Watcher watch_3;
     @Mock
     private ScheduledFuture<?> scheduledFuture;
 
     @Captor
     private ArgumentCaptor<Runnable> runnableCaptor;
 
+    private ListAppender<ILoggingEvent> listAppender;
+
     @BeforeEach()
     void beforeEach() {
-        final var watchers = List.of(watch_1, watch_2, watch_3);
-        watchScheduler = new WatchScheduler(taskScheduler, watchConfiguration, watchers);
+        listAppender = new ListAppender<>();
+        listAppender.start();
+        watcherLogger.addAppender(listAppender);
+    }
+
+    @AfterEach
+    void afterEach() {
+        listAppender.stop();
+        watcherLogger.detachAppender(listAppender);
+        listAppender = null;
     }
 
     @Test
     void should_throwAnException_when_alreadyStarted() {
         // given
-        given(taskScheduler.scheduleAtFixedRate(any(), any(), any())).willAnswer(invocation -> scheduledFuture);
+        given(taskScheduler.scheduleWithFixedDelay(any(), any(), any())).willAnswer(invocation -> scheduledFuture);
 
         // when
         watchScheduler.start(null);
@@ -67,7 +84,7 @@ class WatchSchedulerTest {
     @Test
     void should_start_all_watchers() {
         // given
-        given(taskScheduler.scheduleAtFixedRate(any(), any(), runnableCaptor.capture())).willAnswer(invocation -> scheduledFuture);
+        given(taskScheduler.scheduleWithFixedDelay(any(), any(), runnableCaptor.capture())).willAnswer(invocation -> scheduledFuture);
         watchScheduler.start(null);
         final var runnable = runnableCaptor.getValue();
 
@@ -75,15 +92,13 @@ class WatchSchedulerTest {
         runnable.run();
 
         // then
-        then(watch_1).should().watchKvPath();
-        then(watch_2).should().watchKvPath();
-        then(watch_3).should().watchKvPath();
+        then(watcher).should().watchKVs();
     }
 
     @Test
     void should_stopScheduler() {
         // given
-        given(taskScheduler.scheduleAtFixedRate(any(), any(), runnableCaptor.capture())).willAnswer(invocation -> scheduledFuture);
+        given(taskScheduler.scheduleWithFixedDelay(any(), any(), runnableCaptor.capture())).willAnswer(invocation -> scheduledFuture);
         watchScheduler.start(null);
         given(scheduledFuture.cancel(true)).willReturn(true);
 
@@ -107,7 +122,7 @@ class WatchSchedulerTest {
     @Test
     void should_logWarning_when_alreadyStopped() {
         // given
-        given(taskScheduler.scheduleAtFixedRate(any(), any(), runnableCaptor.capture())).willAnswer(invocation -> scheduledFuture);
+        given(taskScheduler.scheduleWithFixedDelay(any(), any(), runnableCaptor.capture())).willAnswer(invocation -> scheduledFuture);
         watchScheduler.start(null);
         given(scheduledFuture.cancel(true)).willReturn(true);
         watchScheduler.stop(null);
@@ -117,13 +132,19 @@ class WatchSchedulerTest {
 
         // then
         then(taskScheduler).shouldHaveNoMoreInteractions();
-        // fixme
+
+        assertThat(listAppender.list)
+                .filteredOn(iLoggingEvent -> Level.WARN.equals(iLoggingEvent.getLevel()))
+                .hasSize(1)
+                .first()
+                .extracting(ILoggingEvent::getFormattedMessage)
+                .isEqualTo("Watcher scheduler is already stopped");
     }
 
     @Test
     void should_logWarning_when_schedulerCanNotBeStopped() {
         // given
-        given(taskScheduler.scheduleAtFixedRate(any(), any(), runnableCaptor.capture())).willAnswer(invocation -> scheduledFuture);
+        given(taskScheduler.scheduleWithFixedDelay(any(), any(), runnableCaptor.capture())).willAnswer(invocation -> scheduledFuture);
         watchScheduler.start(null);
         given(scheduledFuture.cancel(true)).willReturn(false);
 
@@ -132,6 +153,12 @@ class WatchSchedulerTest {
 
         // then
         then(taskScheduler).shouldHaveNoMoreInteractions();
-        // fixme
+
+        assertThat(listAppender.list)
+                .filteredOn(iLoggingEvent -> Level.WARN.equals(iLoggingEvent.getLevel()))
+                .hasSize(1)
+                .first()
+                .extracting(ILoggingEvent::getFormattedMessage)
+                .isEqualTo("Watcher scheduler could not be stopped");
     }
 }

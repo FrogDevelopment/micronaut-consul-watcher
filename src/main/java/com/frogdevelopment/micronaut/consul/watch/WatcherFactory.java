@@ -1,22 +1,11 @@
 package com.frogdevelopment.micronaut.consul.watch;
 
-import static io.micronaut.context.env.Environment.DEFAULT_NAME;
-import static io.micronaut.discovery.config.ConfigDiscoveryConfiguration.DEFAULT_PATH;
-
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import jakarta.annotation.PostConstruct;
-
 import com.frogdevelopment.micronaut.consul.watch.context.PropertiesChangeHandler;
 import com.frogdevelopment.micronaut.consul.watch.watcher.ConfigurationsWatcher;
 import com.frogdevelopment.micronaut.consul.watch.watcher.NativeWatcher;
 import com.frogdevelopment.micronaut.consul.watch.watcher.Watcher;
-
-import io.micronaut.context.BeanContext;
-import io.micronaut.context.annotation.Context;
+import io.micronaut.context.annotation.Bean;
+import io.micronaut.context.annotation.Factory;
 import io.micronaut.context.env.Environment;
 import io.micronaut.context.env.PropertiesPropertySourceLoader;
 import io.micronaut.context.env.PropertySourceLoader;
@@ -26,48 +15,63 @@ import io.micronaut.discovery.config.ConfigDiscoveryConfiguration.Format;
 import io.micronaut.discovery.consul.ConsulConfiguration;
 import io.micronaut.discovery.consul.client.v1.ConsulClient;
 import io.micronaut.jackson.core.env.JsonPropertySourceLoader;
+import lombok.RequiredArgsConstructor;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import static io.micronaut.context.env.Environment.DEFAULT_NAME;
+import static io.micronaut.discovery.config.ConfigDiscoveryConfiguration.DEFAULT_PATH;
 
 /**
  * Create all needed {@link Watcher} based on configuration.
  *
- * @author benoit.legall
+ * @author LE GALL Benoît
  * @since 1.0.0
  */
-@Slf4j
-@Context
+@Factory
 @RequiredArgsConstructor
 public class WatcherFactory {
 
     private static final String CONSUL_PATH_SEPARATOR = "/";
 
     private final Environment environment;
-    private final BeanContext beanContext;
-    private final ConsulConfiguration consulConfiguration;
     private final ConsulClient consulClient;
     private final PropertiesChangeHandler propertiesChangeHandler;
 
-    private final Map<Format, PropertySourceLoader> loaderByFormatMap = new ConcurrentHashMap<>();
+    @Bean
+    Watcher createWatcher(final ConsulConfiguration consulConfiguration) {
+        final var kvPaths = computeKvPaths(consulConfiguration);
 
-    @PostConstruct
-    void createWatchers() {
+        final var format = consulConfiguration.getConfiguration().getFormat();
+        return switch (format) {
+            case NATIVE -> watchNative(kvPaths);
+            case JSON, YAML, PROPERTIES -> watchConfigurations(kvPaths, resolveLoader(format));
+            default -> throw new ConfigurationException("Unhandled configuration format: " + format);
+        };
+    }
+
+    private List<String> computeKvPaths(final ConsulConfiguration consulConfiguration) {
         final var applicationName = consulConfiguration.getServiceId().orElseThrow();
         final var configurationPath = getConfigurationPath(consulConfiguration);
-        final var format = consulConfiguration.getConfiguration().getFormat();
 
+        final var kvPaths = new ArrayList<String>();
         // Configuration shared by all applications
         final var commonConfigPath = configurationPath + DEFAULT_NAME;
-        createWatcher(commonConfigPath, format);
+        kvPaths.add(commonConfigPath);
 
         // Application-specific configuration
         final var applicationSpecificPath = configurationPath + applicationName;
-        createWatcher(applicationSpecificPath, format);
+        kvPaths.add(applicationSpecificPath);
 
         for (final var activeName : environment.getActiveNames()) {
             // Configuration shared by all applications by active environments
-            createWatcher(toProfiledPath(commonConfigPath, activeName), format);
+            kvPaths.add(toProfiledPath(commonConfigPath, activeName));
             // Application-specific configuration by active environments
-            createWatcher(toProfiledPath(applicationSpecificPath, activeName), format);
+            kvPaths.add(toProfiledPath(applicationSpecificPath, activeName));
         }
+
+        return kvPaths;
     }
 
     private static String getConfigurationPath(final ConsulConfiguration consulConfiguration) {
@@ -86,32 +90,17 @@ public class WatcherFactory {
         return resource + "," + activeName;
     }
 
-    void createWatcher(final String kvPath, final Format format) {
-        log.debug("Create Watcher for [{}]", kvPath);
-
-        final var watcher = switch (format) {
-            case NATIVE -> watchNative(kvPath);
-            case JSON, YAML, PROPERTIES -> watchConfigurations(kvPath, resolveLoader(format));
-            default -> throw new ConfigurationException("Unhandled configuration format: " + format);
-        };
-
-        beanContext.registerSingleton(Watcher.class, watcher);
-    }
-
-    private Watcher watchNative(final String keyPath) {
+    private Watcher watchNative(final List<String> keyPaths) {
         // adding '/' at the end of the kvPath to distinct 'kvPath/value' from 'kvPath,profile/value'
-        return new NativeWatcher(keyPath + CONSUL_PATH_SEPARATOR, consulClient, propertiesChangeHandler);
+        final var kvPaths = keyPaths.stream().map(path -> path + CONSUL_PATH_SEPARATOR).toList();
+        return new NativeWatcher(kvPaths, consulClient, propertiesChangeHandler);
     }
 
-    private Watcher watchConfigurations(final String keyPath, final PropertySourceLoader propertySourceLoader) {
-        return new ConfigurationsWatcher(keyPath, consulClient, propertiesChangeHandler, propertySourceLoader);
+    private Watcher watchConfigurations(final List<String> kvPaths, final PropertySourceLoader propertySourceLoader) {
+        return new ConfigurationsWatcher(kvPaths, consulClient, propertiesChangeHandler, propertySourceLoader);
     }
 
-    private PropertySourceLoader resolveLoader(final Format formatName) {
-        return loaderByFormatMap.computeIfAbsent(formatName, f -> defaultLoader(formatName));
-    }
-
-    private static PropertySourceLoader defaultLoader(final Format format) {
+    private static PropertySourceLoader resolveLoader(final Format format) {
         return switch (format) {
             case JSON -> new JsonPropertySourceLoader();
             case PROPERTIES -> new PropertiesPropertySourceLoader();

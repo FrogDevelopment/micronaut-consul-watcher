@@ -65,8 +65,8 @@ abstract class BaseWatcherIntegrationTest implements TestPropertyProvider {
                 "consul.client.port", String.valueOf(consulPort),
                 "consul.client.config.path", "test",
                 "consul.watch.disabled", "false",
-                "consul.watch.initialDelay", "0",
-                "consul.watch.period", "2s"
+                "consul.watch.initialDelay", "1ms",
+                "consul.watch.period", "1s"
         );
     }
 
@@ -87,7 +87,6 @@ abstract class BaseWatcherIntegrationTest implements TestPropertyProvider {
         // given
         Awaitility.with()
                 .await()
-                .pollDelay(5, SECONDS)
                 .untilAsserted(() -> assertSoftly(softAssertions -> {
                     softAssertions.assertThat(refreshableProperty.getToBeUpdated()).isEqualTo("foo");
                     softAssertions.assertThat(refreshableInnerProperty.getKey().getToBeUpdated()).isEqualTo("foo");
@@ -102,7 +101,7 @@ abstract class BaseWatcherIntegrationTest implements TestPropertyProvider {
         // then
         Awaitility.with()
                 .await()
-                .atMost(30, SECONDS)
+                .atMost(2, SECONDS)
                 .untilAsserted(() -> assertSoftly(softAssertions -> {
                     softAssertions.assertThat(testEventListener.isEventReceived).as("isEventReceived").isTrue();
                     // refreshableProperty return the new value

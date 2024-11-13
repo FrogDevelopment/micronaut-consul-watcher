@@ -1,30 +1,25 @@
 package com.frogdevelopment.micronaut.consul.watch.context;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import jakarta.inject.Singleton;
-
+import com.frogdevelopment.micronaut.consul.watch.watcher.WatchResult;
 import com.google.common.collect.MapDifference;
+import com.google.common.collect.MapDifference.ValueDifference;
 import com.google.common.collect.Maps;
-
 import io.micronaut.context.env.Environment;
 import io.micronaut.context.env.PropertySource;
 import io.micronaut.context.event.ApplicationEventPublisher;
-import io.micronaut.core.annotation.NonNull;
 import io.micronaut.discovery.consul.client.v1.ConsulClient;
 import io.micronaut.runtime.context.scope.refresh.RefreshEvent;
+import jakarta.inject.Singleton;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Handle properties' configuration changes to be notified into the Micronaut context.
  *
- * @author benoit.legall
+ * @author LE GALL Benoît
  * @since 1.0.0
  */
 @Slf4j
@@ -38,26 +33,39 @@ public class PropertiesChangeHandler {
     private final Map<String, String> propertySourceNames = new ConcurrentHashMap<>();
 
     /**
-     * @param kvPath   Path of the watched KV
-     * @param previous Previous data before changes
-     * @param next     New data after changes
+     * Update Micronaut context with new properties, then notify the changes.
+     * @param results Last Consul poll results
      */
-    public synchronized void handleChanges(@NonNull final String kvPath, @NonNull final Map<String, Object> previous,
-                                           @NonNull final Map<String, Object> next) {
+    public void handleChanges(final List<WatchResult> results) {
+        if (results.isEmpty()) {
+            log.debug("Nothing to do");
+            return;
+        }
+
         try {
-            final var difference = Maps.difference(previous, next);
-            if (!difference.areEqual()) {
-                checkClassesTypeOnDifference(difference);
-                updatePropertySource(kvPath, next);
-                publishDifferences(difference);
+            // to accept null values, don't use the stream.collect()
+            final var allChanges = new HashMap<String, Object>();
+            final var newProperties = new HashMap<String, Map<String, Object>>();
+            for (final var result : results) {
+                final var difference = Maps.difference(result.previous(), result.next());
+                if (!difference.areEqual()) {
+                    newProperties.put(toPropertySourceName(result), result.next());
+                    final var differing = checkClassesTypeOnDifference(difference);
+                    differing.forEach((key, value) -> allChanges.put(key, value.leftValue()));
+                }
             }
+
+            updatePropertySources(newProperties);
+
+            publishDifferences(allChanges);
         } catch (final Exception e) {
-            log.error("Unable to apply configuration changes for kvPath={}, previous={} and next={}", kvPath, previous, next, e);
+            log.error("Unable to apply configuration changes", e);
         }
     }
 
-    private void checkClassesTypeOnDifference(final MapDifference<String, Object> difference) {
-        for (final var entry : difference.entriesDiffering().entrySet()) {
+    private Map<String, ValueDifference<Object>> checkClassesTypeOnDifference(final MapDifference<String, Object> difference) {
+        final var differing = difference.entriesDiffering();
+        for (final var entry : differing.entrySet()) {
             final var leftValue = entry.getValue().leftValue();
             final var rightValue = entry.getValue().rightValue();
             if (leftValue != null && rightValue != null) {
@@ -68,6 +76,8 @@ public class PropertiesChangeHandler {
                 }
             }
         }
+
+        return differing;
     }
 
     private boolean areClassesTypeIncompatible(final Class<?> leftClass, final Class<?> rightClass) {
@@ -85,13 +95,18 @@ public class PropertiesChangeHandler {
         return !Number.class.isAssignableFrom(clazz);
     }
 
-    private void updatePropertySource(final String kvPath, final Map<String, Object> newProperties) {
-        log.debug("Updating context with new configuration from [{}]", kvPath);
+    private void updatePropertySources(final Map<String, Map<String, Object>> mapNewProperties) {
+        if (mapNewProperties.isEmpty()) {
+            return;
+        }
 
-        final var propertySourceName = propertySourceNames.computeIfAbsent(kvPath, this::resolvePropertySourceName);
+        log.debug("Updating context with new configurations");
+
         final var updatedPropertySources = new ArrayList<PropertySource>();
         for (final var propertySource : environment.getPropertySources()) {
-            if (propertySource.getName().equals(propertySourceName)) {
+            final var propertySourceName = propertySource.getName();
+            if (mapNewProperties.containsKey(propertySourceName)) {
+                final var newProperties = mapNewProperties.get(propertySourceName);
                 // creating a new PropertySource with new values but keeping the order
                 updatedPropertySources.add(PropertySource.of(propertySourceName, newProperties, propertySource.getOrder()));
             } else {
@@ -103,6 +118,10 @@ public class PropertiesChangeHandler {
                 // /!\ re-setting all the propertySources sorted by Order, to keep precedence
                 .sorted(Comparator.comparing(PropertySource::getOrder))
                 .forEach(environment::addPropertySource);
+    }
+
+    private String toPropertySourceName(final WatchResult watchResult) {
+        return propertySourceNames.computeIfAbsent(watchResult.kvPath(), this::resolvePropertySourceName);
     }
 
     private String resolvePropertySourceName(final String kvPath) {
@@ -118,11 +137,12 @@ public class PropertiesChangeHandler {
         return ConsulClient.SERVICE_ID + '-' + name + '[' + envName + ']';
     }
 
-    private void publishDifferences(final MapDifference<String, Object> difference) {
+    private void publishDifferences(final Map<String, Object> changes) {
+        if (changes.isEmpty()) {
+            return;
+        }
+
         log.debug("Configuration has been updated, publishing RefreshEvent.");
-        final var changes = new HashMap<String, Object>();
-        // to accept null values, don't use the stream.collect()
-        difference.entriesDiffering().forEach((key, value) -> changes.put(key, value.leftValue()));
         eventPublisher.publishEvent(new RefreshEvent(changes));
     }
 }

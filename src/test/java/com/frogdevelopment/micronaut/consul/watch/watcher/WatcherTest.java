@@ -1,7 +1,6 @@
 package com.frogdevelopment.micronaut.consul.watch.watcher;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
@@ -9,14 +8,9 @@ import static org.mockito.Mockito.mock;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
@@ -46,14 +40,12 @@ class WatcherTest {
     private final Base64.Encoder base64Encoder = Base64.getEncoder();
 
     @Captor
-    private ArgumentCaptor<Map<String, Object>> previousDataCaptor;
-    @Captor
-    private ArgumentCaptor<Map<String, Object>> nextDataCaptor;
+    private ArgumentCaptor<List<WatchResult>> changesCaptor;
 
     @Test
     void should_publish_data_change_yaml() {
         // given
-        watcher = new ConfigurationsWatcher("path/to/yaml", consulClient, propertiesChangeHandler, propertySourceReader);
+        watcher = new ConfigurationsWatcher(List.of("path/to/yaml"), consulClient, propertiesChangeHandler, propertySourceReader);
 
         final var keyValue = new KeyValue("path/to/yaml", base64Encoder.encodeToString("foo.bar: value".getBytes()));
         final var newKeyValue = new KeyValue("path/to/yaml", base64Encoder.encodeToString("foo.bar: value_2".getBytes()));
@@ -63,17 +55,19 @@ class WatcherTest {
                 .willReturn(Mono.just(List.of(newKeyValue))); // change
 
         // when
-        watcher.watchKvPath(); // init
-        watcher.watchKvPath(); // no change
-        watcher.watchKvPath(); // change
+        watcher.watchKVs(); // init
+        watcher.watchKVs(); // no change
+        watcher.watchKVs(); // change
 
         // then
-        then(propertiesChangeHandler).should().handleChanges(eq("path/to/yaml"), previousDataCaptor.capture(), nextDataCaptor.capture());
-        final var previousValue = previousDataCaptor.getValue();
+        then(propertiesChangeHandler).should().handleChanges(changesCaptor.capture());
+        final var results = changesCaptor.getValue();
+        assertThat(results).hasSize(1);
+        final var previousValue = results.getFirst().previous();
         assertThat(previousValue)
                 .hasSize(1)
                 .containsEntry("foo.bar", "value");
-        final var nextValue = nextDataCaptor.getValue();
+        final var nextValue = results.getFirst().next();
         assertThat(nextValue)
                 .hasSize(1)
                 .containsEntry("foo.bar", "value_2");
@@ -82,7 +76,7 @@ class WatcherTest {
     @Test
     void should_publish_data_change_native() {
         // given
-        watcher = new NativeWatcher("path/to/", consulClient, propertiesChangeHandler);
+        watcher = new NativeWatcher(List.of("path/to/"), consulClient, propertiesChangeHandler);
 
         final var previousKeyValue1 = new KeyValue("path/to/foo.bar", base64Encoder.encodeToString("value_a".getBytes()));
         final var previousKeyValue2 = new KeyValue("path/to/other.key", base64Encoder.encodeToString("value_b".getBytes()));
@@ -97,18 +91,20 @@ class WatcherTest {
                 .willReturn(Mono.just(nextKvs)); // change
 
         // when
-        watcher.watchKvPath(); // init
-        watcher.watchKvPath(); // no change
-        watcher.watchKvPath(); // change
+        watcher.watchKVs(); // init
+        watcher.watchKVs(); // no change
+        watcher.watchKVs(); // change
 
         // then
-        then(propertiesChangeHandler).should().handleChanges(eq("path/to/"), previousDataCaptor.capture(), nextDataCaptor.capture());
-        final var previousValue = previousDataCaptor.getValue();
+        then(propertiesChangeHandler).should().handleChanges(changesCaptor.capture());
+        final var results = changesCaptor.getValue();
+        assertThat(results).hasSize(1);
+        final var previousValue = results.getFirst().previous();
         assertThat(previousValue)
                 .hasSize(2)
                 .containsEntry("foo.bar", "value_a")
                 .containsEntry("other.key", "value_b");
-        final var nextValue = nextDataCaptor.getValue();
+        final var nextValue = results.getFirst().next();
         assertThat(nextValue)
                 .hasSize(2)
                 .containsEntry("foo.bar", "value_c")
@@ -118,7 +114,7 @@ class WatcherTest {
     @Test
     void should_log_global_error() {
         // given
-        watcher = new ConfigurationsWatcher("path/to/yaml", consulClient, propertiesChangeHandler, propertySourceReader);
+        watcher = new ConfigurationsWatcher(List.of("path/to/yaml"), consulClient, propertiesChangeHandler, propertySourceReader);
 
         final var keyValue = new KeyValue("path/to/yaml", "");
         final var newKeyValue = new KeyValue("path/to/yaml", "incorrect data");
@@ -128,19 +124,18 @@ class WatcherTest {
                 .willReturn(Mono.just(List.of(newKeyValue))); // change
 
         // when
-        watcher.watchKvPath(); // init
-        watcher.watchKvPath(); // no change
-        watcher.watchKvPath(); // change
+        watcher.watchKVs(); // init
+        watcher.watchKVs(); // no change
+        watcher.watchKVs(); // change
 
         // then
         then(propertiesChangeHandler).shouldHaveNoInteractions();
-        // todo assert error logs
     }
 
     @Test
     void should_handle_client_error_NOT_FOUND() {
         // given
-        watcher = new ConfigurationsWatcher("path/to/yaml", consulClient, propertiesChangeHandler, propertySourceReader);
+        watcher = new ConfigurationsWatcher(List.of("path/to/yaml"), consulClient, propertiesChangeHandler, propertySourceReader);
 
         final var response = mock(HttpResponse.class);
         final var exception = new HttpClientResponseException("boom", response);
@@ -148,17 +143,16 @@ class WatcherTest {
         given(response.getStatus()).willReturn(HttpStatus.NOT_FOUND);
 
         // when
-        watcher.watchKvPath();
+        watcher.watchKVs();
 
         // then
         then(propertiesChangeHandler).shouldHaveNoInteractions();
-        // todo assert no error logs
     }
 
     @Test
     void should_handle_client_error_http_error() {
         // given
-        watcher = new ConfigurationsWatcher("path/to/yaml", consulClient, propertiesChangeHandler, propertySourceReader);
+        watcher = new ConfigurationsWatcher(List.of("path/to/yaml"), consulClient, propertiesChangeHandler, propertySourceReader);
 
         final var response = mock(HttpResponse.class);
         final var exception = new HttpClientResponseException("boom", response);
@@ -166,47 +160,25 @@ class WatcherTest {
         given(response.getStatus()).willReturn(HttpStatus.INTERNAL_SERVER_ERROR);
 
         // when
-        watcher.watchKvPath();
+        watcher.watchKVs();
 
         // then
         then(propertiesChangeHandler).shouldHaveNoInteractions();
-        // todo assert error logs
     }
 
     @Test
     void should_handle_client_error_other() {
         // given
-        watcher = new ConfigurationsWatcher("path/to/yaml", consulClient, propertiesChangeHandler, propertySourceReader);
+        watcher = new ConfigurationsWatcher(List.of("path/to/yaml"), consulClient, propertiesChangeHandler, propertySourceReader);
 
         final var exception = new RuntimeException("boom");
         given(consulClient.readValues("path/to/yaml")).willReturn(Mono.error(exception));
 
         // when
-        watcher.watchKvPath();
+        watcher.watchKVs();
+
         // then
         then(propertiesChangeHandler).shouldHaveNoInteractions();
-        // todo assert error logs
-    }
-
-    private static Stream<Arguments> provideKV() {
-        return Stream.of(
-                Arguments.of(null, null, true),
-                Arguments.of(new KeyValue("key", "value"), null, false),
-                Arguments.of(null, new KeyValue("key", "value"), false),
-                Arguments.of(new KeyValue("key", "value"), new KeyValue("key_2", "value"), false),
-                Arguments.of(new KeyValue("key", "value"), new KeyValue("key", "value_2"), false),
-                Arguments.of(new KeyValue("key", "value"), new KeyValue("key", "value"), true)
-        );
-    }
-
-    @ParameterizedTest
-    @MethodSource("provideKV")
-    void should_compare_KV_both_null(final KeyValue kv1, final KeyValue kv2, final boolean expected) {
-        // when
-        final var actual = AbstractWatcher.areEqual(kv1, kv2);
-
-        // then
-        assertThat(actual).isEqualTo(expected);
     }
 
 }
