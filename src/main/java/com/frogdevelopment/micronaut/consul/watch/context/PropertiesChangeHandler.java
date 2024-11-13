@@ -1,7 +1,6 @@
 package com.frogdevelopment.micronaut.consul.watch.context;
 
 import com.frogdevelopment.micronaut.consul.watch.watcher.WatchResult;
-import com.google.common.collect.MapDifference;
 import com.google.common.collect.MapDifference.ValueDifference;
 import com.google.common.collect.Maps;
 import io.micronaut.context.env.Environment;
@@ -50,8 +49,13 @@ public class PropertiesChangeHandler {
                 final var difference = Maps.difference(result.previous(), result.next());
                 if (!difference.areEqual()) {
                     newProperties.put(toPropertySourceName(result), result.next());
-                    final var differing = checkClassesTypeOnDifference(difference);
+                    // updated properties
+                    final var differing = checkClassesTypeOnDifference(difference.entriesDiffering());
                     differing.forEach((key, value) -> allChanges.put(key, value.leftValue()));
+                    // deleted properties
+                    allChanges.putAll(difference.entriesOnlyOnLeft());
+                    // added properties
+                    difference.entriesOnlyOnRight().forEach((key, value) -> allChanges.put(key, null));
                 }
             }
 
@@ -63,8 +67,7 @@ public class PropertiesChangeHandler {
         }
     }
 
-    private Map<String, ValueDifference<Object>> checkClassesTypeOnDifference(final MapDifference<String, Object> difference) {
-        final var differing = difference.entriesDiffering();
+    private Map<String, ValueDifference<Object>> checkClassesTypeOnDifference(Map<String, ValueDifference<Object>> differing) {
         for (final var entry : differing.entrySet()) {
             final var leftValue = entry.getValue().leftValue();
             final var rightValue = entry.getValue().rightValue();

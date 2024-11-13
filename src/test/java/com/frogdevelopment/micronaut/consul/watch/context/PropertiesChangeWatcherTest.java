@@ -1,10 +1,12 @@
 package com.frogdevelopment.micronaut.consul.watch.context;
 
 import com.frogdevelopment.micronaut.consul.watch.watcher.WatchResult;
+
 import io.micronaut.context.env.Environment;
 import io.micronaut.context.env.PropertySource;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.runtime.context.scope.refresh.RefreshEvent;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -44,12 +46,14 @@ class PropertiesChangeWatcherTest {
         previous.put("key_2", null);
         previous.put("key_3", "null");
         previous.put("key_4", null);
+        previous.put("key_to_delete", "foo");
 
         final Map<String, Object> next = new HashMap<>();
         next.put("key_1", "value_2");
         next.put("key_2", "null");
         next.put("key_3", null);
         next.put("key_4", null);
+        next.put("key_added", "bar");
 
         final var propertySources = new ArrayList<PropertySource>();
         propertySources.add(PropertySource.of("consul-consul-watcher[test]", previous, 99));
@@ -76,7 +80,16 @@ class PropertiesChangeWatcherTest {
 
         then(eventPublisher).should().publishEvent(refreshEventArgumentCaptor.capture());
         final var refreshEvent = refreshEventArgumentCaptor.getValue();
-        assertThat(refreshEvent.getSource()).containsEntry("key_1", "value_1");
+        assertThat(refreshEvent.getSource())
+                .hasSize(5)
+                // updated keys, with previous values
+                .containsEntry("key_1", "value_1")
+                .containsEntry("key_2", null)
+                .containsEntry("key_3", "null")
+                // deleted key, with previous value
+                .containsEntry("key_to_delete", "foo")
+                // added key, with null value ?
+                .containsEntry("key_added", null);
     }
 
     @Test
