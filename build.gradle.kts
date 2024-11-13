@@ -5,8 +5,6 @@ plugins {
     id("com.frogdevelopment.jreleaser.publish-convention")
 }
 
-group = "com.frogdevelopment.micronaut.consul"
-
 repositories {
     mavenCentral()
 }
