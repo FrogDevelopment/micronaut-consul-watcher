@@ -1,15 +1,10 @@
 package com.frogdevelopment.micronaut.consul.watch.context;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.times;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-
+import com.frogdevelopment.micronaut.consul.watch.watcher.WatchResult;
+import io.micronaut.context.env.Environment;
+import io.micronaut.context.env.PropertySource;
+import io.micronaut.context.event.ApplicationEventPublisher;
+import io.micronaut.runtime.context.scope.refresh.RefreshEvent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -18,10 +13,12 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import io.micronaut.context.env.Environment;
-import io.micronaut.context.env.PropertySource;
-import io.micronaut.context.event.ApplicationEventPublisher;
-import io.micronaut.runtime.context.scope.refresh.RefreshEvent;
+import java.util.*;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class PropertiesChangeWatcherTest {
@@ -35,9 +32,9 @@ class PropertiesChangeWatcherTest {
     private ApplicationEventPublisher<RefreshEvent> eventPublisher;
 
     @Captor
-    ArgumentCaptor<PropertySource> propertySourceArgumentCaptor;
+    private ArgumentCaptor<PropertySource> propertySourceArgumentCaptor;
     @Captor
-    ArgumentCaptor<RefreshEvent> refreshEventArgumentCaptor;
+    private ArgumentCaptor<RefreshEvent> refreshEventArgumentCaptor;
 
     @Test
     void should_updateContext_and_publishChanges() {
@@ -59,12 +56,14 @@ class PropertiesChangeWatcherTest {
         propertySources.add(PropertySource.of("consul-application", Map.of("key_a", "value_a"), 66));
         given(environment.getPropertySources()).willReturn(propertySources);
 
+        final var watchResult = new WatchResult("config/consul-watcher,test", previous, next);
+
         // when
-        propertiesChangeHandler.handleChanges("config/consul-watcher,test", previous, next);
+        propertiesChangeHandler.handleChanges(List.of(watchResult));
 
         // then
         then(environment).should(times(2)).addPropertySource(propertySourceArgumentCaptor.capture());
-        var propertySource = propertySourceArgumentCaptor.getAllValues()
+        final var propertySource = propertySourceArgumentCaptor.getAllValues()
                 .stream()
                 .filter(ps -> ps.getName().equals("consul-consul-watcher[test]"))
                 .findFirst();
@@ -76,7 +75,7 @@ class PropertiesChangeWatcherTest {
         });
 
         then(eventPublisher).should().publishEvent(refreshEventArgumentCaptor.capture());
-        var refreshEvent = refreshEventArgumentCaptor.getValue();
+        final var refreshEvent = refreshEventArgumentCaptor.getValue();
         assertThat(refreshEvent.getSource()).containsEntry("key_1", "value_1");
     }
 
@@ -86,8 +85,10 @@ class PropertiesChangeWatcherTest {
         final Map<String, Object> previous = Map.of("key_1", "value_1");
         final Map<String, Object> next = Map.of("key_1", "value_1");
 
+        final var watchResult = new WatchResult("config/consul-watcher", previous, next);
+
         // when
-        propertiesChangeHandler.handleChanges("config/application", previous, next);
+        propertiesChangeHandler.handleChanges(List.of(watchResult));
 
         // then
         then(environment).shouldHaveNoInteractions();
@@ -99,9 +100,10 @@ class PropertiesChangeWatcherTest {
         // given
         final Map<String, Object> previous = Map.of("key_int", 1);
         final Map<String, Object> next = Map.of("key_int", "1");
+        final var watchResult = new WatchResult("config/consul-watcher", previous, next);
 
         // when
-        propertiesChangeHandler.handleChanges("config/application", previous, next);
+        propertiesChangeHandler.handleChanges(List.of(watchResult));
 
         // then
         then(environment).shouldHaveNoInteractions();
@@ -113,21 +115,22 @@ class PropertiesChangeWatcherTest {
         // given
         final Map<String, Object> previous = Map.of("key_int", 1);
         final Map<String, Object> next = Map.of("key_int", 1.0);
+        final var watchResult = new WatchResult("config/application", previous, next);
 
-        Collection<PropertySource> propertySources = new ArrayList<>();
+        final var propertySources = new ArrayList<PropertySource>();
         propertySources.add(PropertySource.of("consul-application", Map.of("key_int", 1), 66));
         given(environment.getPropertySources()).willReturn(propertySources);
 
         // when
-        propertiesChangeHandler.handleChanges("config/application", previous, next);
+        propertiesChangeHandler.handleChanges(List.of(watchResult));
 
         // then
         then(environment).should().addPropertySource(propertySourceArgumentCaptor.capture());
-        var propertySource = propertySourceArgumentCaptor.getValue();
+        final var propertySource = propertySourceArgumentCaptor.getValue();
         assertThat(propertySource.get("key_int")).isEqualTo(1.0);
 
         then(eventPublisher).should().publishEvent(refreshEventArgumentCaptor.capture());
-        var refreshEvent = refreshEventArgumentCaptor.getValue();
+        final var refreshEvent = refreshEventArgumentCaptor.getValue();
         assertThat(refreshEvent.getSource()).containsEntry("key_int", 1);
     }
 

@@ -7,7 +7,7 @@ import java.time.Duration;
 import io.micronaut.context.annotation.ConfigurationProperties;
 
 /**
- * @author benoit.legall
+ * @author LE GALL Benoît
  * @since 1.0.0
  */
 @Data
@@ -19,9 +19,9 @@ public class WatchConfiguration {
     /**
      * Initial Delay before starting the polling task. Default to 5ms
      */
-    private final Duration initialDelay = Duration.ofMillis(5);
+    private Duration initialDelay = Duration.ofMillis(5);
     /**
-     * Period between each configuration poll. Default to 30s // fixme find better default value
+     * Period between each configuration poll. Default to 30s.
      */
-    private final Duration period = Duration.ofSeconds(30);
+    private Duration period = Duration.ofSeconds(30);
 }

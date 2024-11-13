@@ -32,10 +32,10 @@ dependencies {
 
     testCompileOnly(mn.lombok)
 
-    testRuntimeOnly(mn.logback.classic)
     testRuntimeOnly(mn.micronaut.serde.jackson)
     testRuntimeOnly(mn.snakeyaml)
 
+    testImplementation(mn.logback.classic)
     testImplementation(mn.assertj.core)
     testImplementation(mn.junit.jupiter.params)
     testImplementation(mn.micronaut.http.client)

@@ -5,7 +5,7 @@ import static io.micronaut.discovery.config.ConfigDiscoveryConfiguration.Format;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -16,64 +16,40 @@ import com.frogdevelopment.micronaut.consul.watch.context.PropertiesChangeHandle
 import io.micronaut.core.util.StringUtils;
 import io.micronaut.discovery.consul.client.v1.ConsulClient;
 import io.micronaut.discovery.consul.client.v1.KeyValue;
+import reactor.core.publisher.Mono;
 
 /**
  * Watcher handling {@link Format#NATIVE} configurations.
  *
- * @author benoit.legall
+ * @author LE GALL Benoît
  * @since 1.0.0
  */
 @Slf4j
 public final class NativeWatcher extends AbstractWatcher<List<KeyValue>> {
 
+    private final Map<String, String> keysMap = new HashMap<>();
+
     /**
      * Default constructor
      */
-    public NativeWatcher(final String kvPath,
+    public NativeWatcher(final List<String> kvPaths,
                          final ConsulClient consulClient,
                          final PropertiesChangeHandler propertiesChangeHandler) {
-        super(kvPath, consulClient, propertiesChangeHandler);
+        super(kvPaths, consulClient, propertiesChangeHandler);
     }
 
     @Override
-    protected void handleConfigurations(final List<KeyValue> nextKVs) {
-        final var previousKVs = getAndSetPrevious(nextKVs);
-
-        if (previousKVs == null) {
-            log.debug("Watcher initialisation for kv path={}", kvPath);
-            return;
-        }
-
-        if (areEqual(nextKVs, previousKVs)) {
-            handleNoChange();
-        } else {
-            final var previousValue = readValues(previousKVs);
-            final var nextValue = readValues(nextKVs);
-
-            handleSuccess(previousValue, nextValue);
-        }
+    protected Mono<List<KeyValue>> mapToData(String kvPath, List<KeyValue> kvs) {
+        return Mono.just(kvs);
     }
 
-    private static boolean areEqual(final List<KeyValue> nextKVs, final List<KeyValue> previousKVs) {
-        if (nextKVs.size() != previousKVs.size()) {
-            return false;
-        }
-
-        nextKVs.sort(Comparator.comparing(KeyValue::getKey));
-        previousKVs.sort(Comparator.comparing(KeyValue::getKey));
-
-        for (int i = 0; i < nextKVs.size(); i++) {
-            final var nextKV = nextKVs.get(i);
-            final var previousKV = previousKVs.get(i);
-            if (!areEqual(previousKV, nextKV)) {
-                return false;
-            }
-        }
-
-        return true;
+    @Override
+    protected boolean areEqual(final List<KeyValue> next, final List<KeyValue> previous) {
+        return KvUtils.areEqual(next, previous);
     }
 
-    private Map<String, Object> readValues(final List<KeyValue> keyValues) {
+    @Override
+    protected Map<String, Object> readValue(final List<KeyValue> keyValues) {
         if (keyValues == null) {
             return Collections.emptyMap();
         }
@@ -85,7 +61,7 @@ public final class NativeWatcher extends AbstractWatcher<List<KeyValue>> {
     }
 
     private String pathToPropertyKey(final KeyValue kv) {
-        return List.of(kv.getKey().split("/")).getLast();
+        return keysMap.computeIfAbsent(kv.getKey(), key -> List.of(key.split("/")).getLast());
     }
 
     private String readValue(final KeyValue keyValue) {
