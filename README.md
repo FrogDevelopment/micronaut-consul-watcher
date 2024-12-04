@@ -14,6 +14,4 @@ The watcher can be configured using
 consul:
   watch:
     disabled: false # to disable the watcher, during test for instance
-    initial-delay: 1ms # duration before running 1st poll
-    period: 30s # duration between each poll
 ```

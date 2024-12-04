@@ -3,24 +3,25 @@ package com.frogdevelopment.micronaut.consul.watch.watcher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.frogdevelopment.micronaut.consul.watch.client.IndexConsulClient;
+import com.frogdevelopment.micronaut.consul.watch.client.KeyValue;
 import com.frogdevelopment.micronaut.consul.watch.context.PropertiesChangeHandler;
 
-import io.micronaut.context.exceptions.ConfigurationException;
-import io.micronaut.discovery.consul.client.v1.ConsulClient;
-import io.micronaut.discovery.consul.client.v1.KeyValue;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
-import reactor.core.publisher.Flux;
+import io.micronaut.http.client.exceptions.ReadTimeoutException;
+import io.micronaut.http.client.exceptions.ResponseClosedException;
+import io.micronaut.scheduling.TaskScheduler;
+import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 /**
- * @param <V>
  * @author LE GALL Benoît
  * @since 1.0.0
  */
@@ -28,87 +29,118 @@ import reactor.core.scheduler.Schedulers;
 @RequiredArgsConstructor
 abstract sealed class AbstractWatcher<V> implements Watcher permits ConfigurationsWatcher, NativeWatcher {
 
-    protected final List<String> kvPaths;
-    private final ConsulClient consulClient;
+    protected static final Integer NO_INDEX = null;
+    private static final int WATCH_DELAY = 1000;
+
+    private final List<String> kvPaths;
+    private final TaskScheduler taskScheduler;
+    protected final IndexConsulClient consulClient;
     private final PropertiesChangeHandler propertiesChangeHandler;
 
+    protected final Map<String, V> kvHolder = new ConcurrentHashMap<>();
+    private final Map<String, Disposable> listeners = new ConcurrentHashMap<>();
+
     private final Base64.Decoder base64Decoder = Base64.getDecoder();
-    private final Map<String, V> holder = new ConcurrentHashMap<>();
+    private volatile boolean watching = false;
 
     @Override
-    public void watchKVs() {
+    public void start() {
+        if (watching) {
+            throw new IllegalStateException("Watcher is already started");
+        }
+
         try {
-            log.info("Polling KVs");
-            Flux.fromIterable(kvPaths)
-                    .parallel()
-                    .runOn(Schedulers.parallel())
-                    .flatMap(this::watchKvPath)
-                    .sequential()
-                    .collectList()
-                    .doOnSuccess(this::handleSuccess)
-                    .then()
-                    .block();
+            log.debug("Starting KVs watcher");
+            watching = true;
+            kvPaths.forEach(kvPath -> watchKvPath(kvPath, 0));
         } catch (final Exception e) {
-            log.error("Error reading configurations from Consul", e);
+            log.error("Error watching configurations", e);
+            stop();
         }
     }
 
-    private Mono<WatchResult> watchKvPath(final String kvPath) {
-        log.debug("Polling kvPath={}", kvPath);
-        return Mono.from(consulClient.readValues(kvPath))
-                .onErrorResume(throwable -> handleError(kvPath, throwable))
-                .flatMap(kvs -> mapToData(kvPath, kvs))
-                .flatMap(next -> handle(kvPath, next));
-    }
-
-    private static Mono<List<KeyValue>> handleError(String kvPath, Throwable throwable) {
-        if (throwable instanceof final HttpClientResponseException e && e.getStatus() == HttpStatus.NOT_FOUND) {
-            log.debug("No KV found with path={}", kvPath);
-            return Mono.empty();
+    @Override
+    public void stop() {
+        if (!watching) {
+            log.warn("You tried to stop an unstarted Watcher");
+            return;
         }
 
-        return Mono.error(new ConfigurationException("Error reading KV for path=" + kvPath, throwable));
+        log.debug("Stopping KVs watchers");
+        listeners.forEach((key, value) -> {
+            try {
+                log.debug("Stopping watch for kvPath={}", key);
+                value.dispose();
+            } catch (final Exception e) {
+                log.error("Error stopping configurations watcher for kvPath={}", key, e);
+            }
+        });
+        listeners.clear();
+        kvHolder.clear();
+        watching = false;
     }
 
-    private Mono<WatchResult> handle(final String kvPath, final V next) {
-        final var previous = holder.put(kvPath, next);
+    private void watchKvPath(final String kvPath, final int nbFailures) {
+        taskScheduler.schedule(Duration.ofMillis(WATCH_DELAY), () -> {
+            if (!watching) {
+                log.warn("Watcher is not started");
+                return;
+            }
+            final var disposable = watchValue(kvPath)
+                    .subscribe(next -> onNext(kvPath, next), throwable -> onError(kvPath, throwable, nbFailures));
+
+            listeners.put(kvPath, disposable);
+        });
+    }
+
+    protected abstract Mono<V> watchValue(String kvPath);
+
+    private void onNext(String kvPath, final V next) {
+        final var previous = kvHolder.put(kvPath, next);
 
         if (previous == null) {
-            log.debug("Watcher initialisation for kv path={}", kvPath);
-            return Mono.empty();
-        }
-
-        if (areEqual(previous, next)) {
-            handleNoChange();
-            return Mono.empty();
+            handleInit(kvPath);
+        } else if (areEqual(previous, next)) {
+            handleNoChange(kvPath);
         } else {
             final var previousValue = readValue(previous);
             final var nextValue = readValue(next);
 
-            return Mono.just(new WatchResult(kvPath, previousValue, nextValue));
+            propertiesChangeHandler.handleChanges(new WatchResult(kvPath, previousValue, nextValue));
         }
-    }
 
-    protected abstract Mono<V> mapToData(String kvPath, final List<KeyValue> kvs);
+        watchKvPath(kvPath, 0);
+    }
 
     protected abstract boolean areEqual(final V previous, final V next);
 
-    protected abstract Map<String, Object> readValue(final V value);
+    protected abstract Map<String, Object> readValue(final V keyValue);
+
+    private void onError(String kvPath, Throwable throwable, int nbFailures) {
+        if (throwable instanceof final HttpClientResponseException e && e.getStatus() == HttpStatus.NOT_FOUND) {
+            log.debug("No KV found with kvPath={}", kvPath);
+            listeners.remove(kvPath);
+        } else if (throwable instanceof ReadTimeoutException || throwable instanceof ResponseClosedException) {
+            log.debug("Exception [{}] for kvPath={}", throwable, kvPath);
+            watchKvPath(kvPath, 0);
+        } else {
+            log.error("Watching kvPath={} failed", kvPath, throwable);
+            if (nbFailures <= 3) {
+                watchKvPath(kvPath, nbFailures + 1);
+            }
+        }
+    }
+
+    private void handleInit(final String kvPath) {
+        log.debug("Init watcher for kvPath={}", kvPath);
+    }
+
+    private void handleNoChange(final String kvPath) {
+        log.debug("Nothing changed for kvPath={}", kvPath);
+    }
 
     protected final byte[] decodeValue(final KeyValue keyValue) {
         return base64Decoder.decode(keyValue.getValue());
-    }
-
-    protected void handleNoChange() {
-        log.debug("Nothing changed");
-    }
-
-    private void handleSuccess(final List<WatchResult> results) {
-        if (results.isEmpty()) {
-            return;
-        }
-        log.info("Consul poll successful");
-        propertiesChangeHandler.handleChanges(results);
     }
 
 }

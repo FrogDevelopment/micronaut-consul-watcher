@@ -1,21 +1,23 @@
 package com.frogdevelopment.micronaut.consul.watch.watcher;
 
-import com.frogdevelopment.micronaut.consul.watch.context.PropertiesChangeHandler;
-
-import io.micronaut.context.env.PropertySourceReader;
-import io.micronaut.core.util.StringUtils;
-import io.micronaut.discovery.consul.client.v1.ConsulClient;
-import io.micronaut.discovery.consul.client.v1.KeyValue;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+import static io.micronaut.discovery.config.ConfigDiscoveryConfiguration.Format;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
-import static io.micronaut.discovery.config.ConfigDiscoveryConfiguration.Format;
+import com.frogdevelopment.micronaut.consul.watch.client.IndexConsulClient;
+import com.frogdevelopment.micronaut.consul.watch.client.KeyValue;
+import com.frogdevelopment.micronaut.consul.watch.context.PropertiesChangeHandler;
+
+import io.micronaut.context.env.PropertySourceReader;
+import io.micronaut.core.util.StringUtils;
+import io.micronaut.scheduling.TaskScheduler;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * Watcher handling {@link Format#JSON}, {@link Format#PROPERTIES} and {@link Format#YAML} configurations.
@@ -32,25 +34,28 @@ public final class ConfigurationsWatcher extends AbstractWatcher<KeyValue> {
      * Default constructor
      */
     public ConfigurationsWatcher(final List<String> kvPaths,
-                                 final ConsulClient consulClient,
+                                 final TaskScheduler taskScheduler,
+                                 final IndexConsulClient consulClient,
                                  final PropertiesChangeHandler propertiesChangeHandler,
                                  final PropertySourceReader propertySourceReader) {
-        super(kvPaths, consulClient, propertiesChangeHandler);
+        super(kvPaths, taskScheduler, consulClient, propertiesChangeHandler);
         this.propertySourceReader = propertySourceReader;
     }
 
     @Override
-    protected Mono<KeyValue> mapToData(String kvPath, final List<KeyValue> kvs) {
-        // todo: recurse parameter in ConsulOperations#readValues is always true
-        //  => treating the key as a prefix instead of a literal match
-        //  => matches also existing profiles
-        return Flux.fromIterable(kvs)
+    protected Mono<KeyValue> watchValue(String kvPath) {
+        final var modifiedIndex = Optional.ofNullable(kvHolder.get(kvPath))
+                .map(KeyValue::getModifyIndex)
+                .orElse(NO_INDEX);
+        log.debug("Watching kvPath={} with index={}", kvPath, modifiedIndex);
+        return Mono.from(consulClient.readValues(kvPath, false, modifiedIndex))
+                .flatMapMany(Flux::fromIterable)
                 .filter(kv -> kvPath.equals(kv.getKey()))
                 .singleOrEmpty();
     }
 
     @Override
-    protected boolean areEqual(KeyValue previous, KeyValue next) {
+    protected boolean areEqual(final KeyValue previous, final KeyValue next) {
         return KvUtils.areEqual(previous, next);
     }
 

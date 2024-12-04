@@ -1,27 +1,32 @@
 package com.frogdevelopment.micronaut.consul.watch;
 
+import static io.micronaut.context.env.Environment.DEFAULT_NAME;
+import static io.micronaut.discovery.config.ConfigDiscoveryConfiguration.DEFAULT_PATH;
+
+import lombok.RequiredArgsConstructor;
+
+import java.util.ArrayList;
+import java.util.List;
+import jakarta.inject.Named;
+
+import com.frogdevelopment.micronaut.consul.watch.client.IndexConsulClient;
 import com.frogdevelopment.micronaut.consul.watch.context.PropertiesChangeHandler;
 import com.frogdevelopment.micronaut.consul.watch.watcher.ConfigurationsWatcher;
 import com.frogdevelopment.micronaut.consul.watch.watcher.NativeWatcher;
 import com.frogdevelopment.micronaut.consul.watch.watcher.Watcher;
+
 import io.micronaut.context.annotation.Bean;
+import io.micronaut.context.annotation.Context;
 import io.micronaut.context.annotation.Factory;
 import io.micronaut.context.env.Environment;
 import io.micronaut.context.env.PropertiesPropertySourceLoader;
 import io.micronaut.context.env.PropertySourceLoader;
 import io.micronaut.context.env.yaml.YamlPropertySourceLoader;
 import io.micronaut.context.exceptions.ConfigurationException;
-import io.micronaut.discovery.config.ConfigDiscoveryConfiguration.Format;
 import io.micronaut.discovery.consul.ConsulConfiguration;
-import io.micronaut.discovery.consul.client.v1.ConsulClient;
 import io.micronaut.jackson.core.env.JsonPropertySourceLoader;
-import lombok.RequiredArgsConstructor;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import static io.micronaut.context.env.Environment.DEFAULT_NAME;
-import static io.micronaut.discovery.config.ConfigDiscoveryConfiguration.DEFAULT_PATH;
+import io.micronaut.scheduling.TaskExecutors;
+import io.micronaut.scheduling.TaskScheduler;
 
 /**
  * Create all needed {@link Watcher} based on configuration.
@@ -36,19 +41,27 @@ public class WatcherFactory {
     private static final String CONSUL_PATH_SEPARATOR = "/";
 
     private final Environment environment;
-    private final ConsulClient consulClient;
+    @Named(TaskExecutors.SCHEDULED)
+    private final TaskScheduler taskScheduler;
+    private final IndexConsulClient consulClient;
     private final PropertiesChangeHandler propertiesChangeHandler;
 
-    @Bean
+    @Context
+    @Bean(preDestroy = "stop")
     Watcher createWatcher(final ConsulConfiguration consulConfiguration) {
         final var kvPaths = computeKvPaths(consulConfiguration);
 
         final var format = consulConfiguration.getConfiguration().getFormat();
-        return switch (format) {
+        final var watcher = switch (format) {
             case NATIVE -> watchNative(kvPaths);
-            case JSON, YAML, PROPERTIES -> watchConfigurations(kvPaths, resolveLoader(format));
+            case JSON -> watchConfigurations(kvPaths, new JsonPropertySourceLoader());
+            case YAML -> watchConfigurations(kvPaths, new YamlPropertySourceLoader());
+            case PROPERTIES -> watchConfigurations(kvPaths, new PropertiesPropertySourceLoader());
             default -> throw new ConfigurationException("Unhandled configuration format: " + format);
         };
+
+        watcher.start();
+        return watcher;
     }
 
     private List<String> computeKvPaths(final ConsulConfiguration consulConfiguration) {
@@ -91,22 +104,13 @@ public class WatcherFactory {
     }
 
     private Watcher watchNative(final List<String> keyPaths) {
-        // adding '/' at the end of the kvPath to distinct 'kvPath/value' from 'kvPath,profile/value'
+        // adding '/' at the end of the kvPath to distinct 'kvPath/' from 'kvPath,profile/'
         final var kvPaths = keyPaths.stream().map(path -> path + CONSUL_PATH_SEPARATOR).toList();
-        return new NativeWatcher(kvPaths, consulClient, propertiesChangeHandler);
+        return new NativeWatcher(kvPaths, taskScheduler, consulClient, propertiesChangeHandler);
     }
 
     private Watcher watchConfigurations(final List<String> kvPaths, final PropertySourceLoader propertySourceLoader) {
-        return new ConfigurationsWatcher(kvPaths, consulClient, propertiesChangeHandler, propertySourceLoader);
-    }
-
-    private static PropertySourceLoader resolveLoader(final Format format) {
-        return switch (format) {
-            case JSON -> new JsonPropertySourceLoader();
-            case PROPERTIES -> new PropertiesPropertySourceLoader();
-            case YAML -> new YamlPropertySourceLoader();
-            default -> throw new ConfigurationException("Unsupported properties file format: " + format);
-        };
+        return new ConfigurationsWatcher(kvPaths, taskScheduler, consulClient, propertiesChangeHandler, propertySourceLoader);
     }
 
 }

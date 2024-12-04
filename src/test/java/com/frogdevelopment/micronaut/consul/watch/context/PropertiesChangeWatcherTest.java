@@ -63,7 +63,7 @@ class PropertiesChangeWatcherTest {
         final var watchResult = new WatchResult("config/consul-watcher,test", previous, next);
 
         // when
-        propertiesChangeHandler.handleChanges(List.of(watchResult));
+        propertiesChangeHandler.handleChanges(watchResult);
 
         // then
         then(environment).should(times(2)).addPropertySource(propertySourceArgumentCaptor.capture());
@@ -101,7 +101,7 @@ class PropertiesChangeWatcherTest {
         final var watchResult = new WatchResult("config/consul-watcher", previous, next);
 
         // when
-        propertiesChangeHandler.handleChanges(List.of(watchResult));
+        propertiesChangeHandler.handleChanges(watchResult);
 
         // then
         then(environment).shouldHaveNoInteractions();
@@ -116,7 +116,7 @@ class PropertiesChangeWatcherTest {
         final var watchResult = new WatchResult("config/consul-watcher", previous, next);
 
         // when
-        propertiesChangeHandler.handleChanges(List.of(watchResult));
+        propertiesChangeHandler.handleChanges(watchResult);
 
         // then
         then(environment).shouldHaveNoInteractions();
@@ -135,7 +135,7 @@ class PropertiesChangeWatcherTest {
         given(environment.getPropertySources()).willReturn(propertySources);
 
         // when
-        propertiesChangeHandler.handleChanges(List.of(watchResult));
+        propertiesChangeHandler.handleChanges(watchResult);
 
         // then
         then(environment).should().addPropertySource(propertySourceArgumentCaptor.capture());

@@ -8,18 +8,19 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import io.micronaut.discovery.consul.client.v1.KeyValue;
+import com.frogdevelopment.micronaut.consul.watch.client.KeyValue;
+
 
 class KvUtilsTest {
 
     private static Stream<Arguments> provideKV() {
         return Stream.of(
                 Arguments.of(null, null, true),
-                Arguments.of(new KeyValue("key", "value"), null, false),
-                Arguments.of(null, new KeyValue("key", "value"), false),
-                Arguments.of(new KeyValue("key", "value"), new KeyValue("key_2", "value"), false),
-                Arguments.of(new KeyValue("key", "value"), new KeyValue("key", "value_2"), false),
-                Arguments.of(new KeyValue("key", "value"), new KeyValue("key", "value"), true)
+                Arguments.of(new KeyValue(0, "key", "value"), null, false),
+                Arguments.of(null, new KeyValue(0, "key", "value"), false),
+                Arguments.of(new KeyValue(0, "key", "value"), new KeyValue(0, "key_2", "value"), false),
+                Arguments.of(new KeyValue(0, "key", "value"), new KeyValue(0, "key", "value_2"), false),
+                Arguments.of(new KeyValue(0, "key", "value"), new KeyValue(0, "key", "value"), true)
         );
     }
 
