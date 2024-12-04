@@ -1,19 +1,25 @@
 package com.frogdevelopment.micronaut.consul.watch.context;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import jakarta.inject.Singleton;
+
 import com.frogdevelopment.micronaut.consul.watch.watcher.WatchResult;
 import com.google.common.collect.MapDifference.ValueDifference;
 import com.google.common.collect.Maps;
+
 import io.micronaut.context.env.Environment;
 import io.micronaut.context.env.PropertySource;
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.discovery.consul.client.v1.ConsulClient;
 import io.micronaut.runtime.context.scope.refresh.RefreshEvent;
-import jakarta.inject.Singleton;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Handle properties' configuration changes to be notified into the Micronaut context.
@@ -33,41 +39,34 @@ public class PropertiesChangeHandler {
 
     /**
      * Update Micronaut context with new properties, then notify the changes.
-     * @param results Last Consul poll results
+     *
+     * @param result Last Consul poll results
      */
-    public void handleChanges(final List<WatchResult> results) {
-        if (results.isEmpty()) {
-            log.debug("Nothing to do");
-            return;
-        }
-
+    public void handleChanges(final WatchResult result) {
         try {
-            // to accept null values, don't use the stream.collect()
-            final var allChanges = new HashMap<String, Object>();
-            final var newProperties = new HashMap<String, Map<String, Object>>();
-            for (final var result : results) {
-                final var difference = Maps.difference(result.previous(), result.next());
-                if (!difference.areEqual()) {
-                    newProperties.put(toPropertySourceName(result), result.next());
-                    // updated properties
-                    final var differing = checkClassesTypeOnDifference(difference.entriesDiffering());
-                    differing.forEach((key, value) -> allChanges.put(key, value.leftValue()));
-                    // deleted properties
-                    allChanges.putAll(difference.entriesOnlyOnLeft());
-                    // added properties
-                    difference.entriesOnlyOnRight().forEach((key, value) -> allChanges.put(key, null));
-                }
+            final var difference = Maps.difference(result.previous(), result.next());
+            if (!difference.areEqual()) {
+                final var differing = difference.entriesDiffering();
+                checkClassesTypeOnDifference(differing);
+
+                final var allChanges = new HashMap<String, Object>();
+                // updated properties
+                differing.forEach((key, value) -> allChanges.put(key, value.leftValue()));
+                // deleted properties
+                allChanges.putAll(difference.entriesOnlyOnLeft());
+                // added properties
+                difference.entriesOnlyOnRight().forEach((key, value) -> allChanges.put(key, null));
+
+                updatePropertySources(result);
+
+                publishDifferences(allChanges);
             }
-
-            updatePropertySources(newProperties);
-
-            publishDifferences(allChanges);
         } catch (final Exception e) {
             log.error("Unable to apply configuration changes", e);
         }
     }
 
-    private Map<String, ValueDifference<Object>> checkClassesTypeOnDifference(Map<String, ValueDifference<Object>> differing) {
+    private void checkClassesTypeOnDifference(final Map<String, ValueDifference<Object>> differing) {
         for (final var entry : differing.entrySet()) {
             final var leftValue = entry.getValue().leftValue();
             final var rightValue = entry.getValue().rightValue();
@@ -79,8 +78,6 @@ public class PropertiesChangeHandler {
                 }
             }
         }
-
-        return differing;
     }
 
     private boolean areClassesTypeIncompatible(final Class<?> leftClass, final Class<?> rightClass) {
@@ -98,20 +95,15 @@ public class PropertiesChangeHandler {
         return !Number.class.isAssignableFrom(clazz);
     }
 
-    private void updatePropertySources(final Map<String, Map<String, Object>> mapNewProperties) {
-        if (mapNewProperties.isEmpty()) {
-            return;
-        }
-
-        log.debug("Updating context with new configurations");
+    private void updatePropertySources(final WatchResult watchResult) {
+        final var propertySourceName = toPropertySourceName(watchResult);
+        log.debug("Updating context with new configurations for {}", propertySourceName);
 
         final var updatedPropertySources = new ArrayList<PropertySource>();
         for (final var propertySource : environment.getPropertySources()) {
-            final var propertySourceName = propertySource.getName();
-            if (mapNewProperties.containsKey(propertySourceName)) {
-                final var newProperties = mapNewProperties.get(propertySourceName);
+            if (propertySource.getName().equals(propertySourceName)) {
                 // creating a new PropertySource with new values but keeping the order
-                updatedPropertySources.add(PropertySource.of(propertySourceName, newProperties, propertySource.getOrder()));
+                updatedPropertySources.add(PropertySource.of(propertySourceName, watchResult.next(), propertySource.getOrder()));
             } else {
                 updatedPropertySources.add(propertySource);
             }

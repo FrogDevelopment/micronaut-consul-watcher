@@ -1,0 +1,4 @@
+consul:
+  client:
+    read-idle-timeout: 15s
+    read-timeout: 30s

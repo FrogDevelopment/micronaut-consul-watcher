@@ -7,7 +7,13 @@ package com.frogdevelopment.micronaut.consul.watch.watcher;
 public interface Watcher {
 
     /**
-     * Call the Consul KV read endpoint for the configured KV paths.
+     * Start the watching.
      */
-    void watchKVs();
+    void start();
+
+    /**
+     * Stop the watching.
+     */
+    void stop();
+
 }

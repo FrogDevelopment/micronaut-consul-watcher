@@ -16,8 +16,9 @@ dependencies {
 
     compileOnly(mn.lombok)
     compileOnly(mn.snakeyaml)
-    compileOnly(mn.micronaut.jackson.core)
 
+    implementation(mn.micronaut.jackson.databind)
+    implementation(mn.micronaut.serde.jackson)
     implementation(mn.micronaut.discovery.client)
     implementation(mn.micronaut.reactor)
     implementation(mn.guava)

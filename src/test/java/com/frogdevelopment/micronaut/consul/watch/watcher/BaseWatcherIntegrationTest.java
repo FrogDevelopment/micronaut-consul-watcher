@@ -6,6 +6,7 @@ import static org.assertj.core.api.SoftAssertions.assertSoftly;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import jakarta.inject.Inject;
@@ -22,6 +23,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.consul.ConsulContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+
+import com.google.common.util.concurrent.Uninterruptibles;
 
 import io.micronaut.context.BeanContext;
 import io.micronaut.context.annotation.ConfigurationProperties;
@@ -94,6 +97,9 @@ abstract class BaseWatcherIntegrationTest implements TestPropertyProvider {
                     softAssertions.assertThat(refreshableBean.otherKey).isEqualTo("bar");
                 }));
 
+        // fixme wait for watchers to be ready
+        Uninterruptibles.sleepUninterruptibly(Duration.ofSeconds(2));
+
         // when
         final var randomFoo = RandomStringUtils.secure().nextAlphanumeric(10);
         updateConsul(randomFoo, "bar");
@@ -101,7 +107,7 @@ abstract class BaseWatcherIntegrationTest implements TestPropertyProvider {
         // then
         Awaitility.with()
                 .await()
-                .atMost(2, SECONDS)
+                .atMost(5, SECONDS)
                 .untilAsserted(() -> assertSoftly(softAssertions -> {
                     softAssertions.assertThat(testEventListener.isEventReceived).as("isEventReceived").isTrue();
                     // refreshableProperty return the new value

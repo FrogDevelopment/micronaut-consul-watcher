@@ -3,7 +3,7 @@ package com.frogdevelopment.micronaut.consul.watch.watcher;
 import java.util.Comparator;
 import java.util.List;
 
-import io.micronaut.discovery.consul.client.v1.KeyValue;
+import com.frogdevelopment.micronaut.consul.watch.client.KeyValue;
 
 /**
  * Utils class to compare {@link KeyValue}
@@ -20,7 +20,7 @@ class KvUtils {
     }
 
     /**
-     * Compare 2 {@link KeyValue}
+     * Compare 2 {@link KeyValue} by key and value
      *
      * @param left 1st {@link KeyValue} to compare
      * @param right 2d {@link KeyValue} to compare
@@ -55,9 +55,9 @@ class KvUtils {
         right.sort(Comparator.comparing(KeyValue::getKey));
 
         for (int i = 0; i < left.size(); i++) {
-            final var nextKV = left.get(i);
-            final var previousKV = right.get(i);
-            if (!areEqual(previousKV, nextKV)) {
+            final var leftKV = left.get(i);
+            final var rightKV = right.get(i);
+            if (!areEqual(rightKV, leftKV)) {
                 return false;
             }
         }

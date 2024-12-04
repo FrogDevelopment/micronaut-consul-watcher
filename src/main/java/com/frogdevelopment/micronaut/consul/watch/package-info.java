@@ -1,6 +1,6 @@
 @Configuration
 @RequiresConsul
-@Requires(property = WatchConfiguration.PREFIX + ".disabled", notEquals = "true", defaultValue = "false")
+@Requires(property = "consul.watch.disabled", notEquals = "true", defaultValue = "false")
 package com.frogdevelopment.micronaut.consul.watch;
 
 import io.micronaut.context.annotation.Configuration;
