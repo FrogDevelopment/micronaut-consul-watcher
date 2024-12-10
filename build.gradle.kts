@@ -21,6 +21,7 @@ dependencies {
     implementation(mn.micronaut.serde.jackson)
     implementation(mn.micronaut.discovery.client)
     implementation(mn.micronaut.reactor)
+    implementation(mn.micronaut.retry)
     implementation(mn.guava)
 
     // ----------- TESTS -----------

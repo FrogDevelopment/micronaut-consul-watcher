@@ -12,7 +12,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.frogdevelopment.micronaut.consul.watch.client.IndexConsulClient;
+import com.frogdevelopment.micronaut.consul.watch.client.WatchConsulClient;
 import com.frogdevelopment.micronaut.consul.watch.context.PropertiesChangeHandler;
 
 import io.micronaut.context.env.PropertySourceReader;
@@ -23,7 +23,7 @@ class WatcherTest {
 
     private Watcher watcher;
     @Mock
-    private IndexConsulClient consulClient;
+    private WatchConsulClient consulClient;
     @Mock
     private PropertiesChangeHandler propertiesChangeHandler;
     private final PropertySourceReader propertySourceReader = new YamlPropertySourceLoader();
