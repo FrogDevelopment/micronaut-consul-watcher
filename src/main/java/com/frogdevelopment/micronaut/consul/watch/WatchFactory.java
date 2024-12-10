@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import jakarta.inject.Named;
 
-import com.frogdevelopment.micronaut.consul.watch.client.IndexConsulClient;
+import com.frogdevelopment.micronaut.consul.watch.client.WatchConsulClient;
 import com.frogdevelopment.micronaut.consul.watch.context.PropertiesChangeHandler;
 import com.frogdevelopment.micronaut.consul.watch.watcher.ConfigurationsWatcher;
 import com.frogdevelopment.micronaut.consul.watch.watcher.NativeWatcher;
@@ -36,14 +36,14 @@ import io.micronaut.scheduling.TaskScheduler;
  */
 @Factory
 @RequiredArgsConstructor
-public class WatcherFactory {
+public class WatchFactory {
 
     private static final String CONSUL_PATH_SEPARATOR = "/";
 
     private final Environment environment;
     @Named(TaskExecutors.SCHEDULED)
     private final TaskScheduler taskScheduler;
-    private final IndexConsulClient consulClient;
+    private final WatchConsulClient consulClient;
     private final PropertiesChangeHandler propertiesChangeHandler;
 
     @Context

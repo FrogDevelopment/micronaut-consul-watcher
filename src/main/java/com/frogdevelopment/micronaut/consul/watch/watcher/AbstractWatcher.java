@@ -9,14 +9,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.frogdevelopment.micronaut.consul.watch.client.IndexConsulClient;
+import com.frogdevelopment.micronaut.consul.watch.client.WatchConsulClient;
 import com.frogdevelopment.micronaut.consul.watch.client.KeyValue;
 import com.frogdevelopment.micronaut.consul.watch.context.PropertiesChangeHandler;
 
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.http.client.exceptions.ReadTimeoutException;
-import io.micronaut.http.client.exceptions.ResponseClosedException;
 import io.micronaut.scheduling.TaskScheduler;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
@@ -34,7 +33,7 @@ abstract sealed class AbstractWatcher<V> implements Watcher permits Configuratio
 
     private final List<String> kvPaths;
     private final TaskScheduler taskScheduler;
-    protected final IndexConsulClient consulClient;
+    protected final WatchConsulClient consulClient;
     private final PropertiesChangeHandler propertiesChangeHandler;
 
     protected final Map<String, V> kvHolder = new ConcurrentHashMap<>();
@@ -118,9 +117,9 @@ abstract sealed class AbstractWatcher<V> implements Watcher permits Configuratio
 
     private void onError(String kvPath, Throwable throwable, int nbFailures) {
         if (throwable instanceof final HttpClientResponseException e && e.getStatus() == HttpStatus.NOT_FOUND) {
-            log.debug("No KV found with kvPath={}", kvPath);
+            log.trace("No KV found with kvPath={}", kvPath);
             listeners.remove(kvPath);
-        } else if (throwable instanceof ReadTimeoutException || throwable instanceof ResponseClosedException) {
+        } else if (throwable instanceof ReadTimeoutException) {
             log.debug("Exception [{}] for kvPath={}", throwable, kvPath);
             watchKvPath(kvPath, 0);
         } else {

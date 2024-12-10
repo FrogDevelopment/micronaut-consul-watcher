@@ -12,7 +12,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import com.frogdevelopment.micronaut.consul.watch.client.IndexConsulClient;
+import com.frogdevelopment.micronaut.consul.watch.client.WatchConsulClient;
 import com.frogdevelopment.micronaut.consul.watch.client.KeyValue;
 import com.frogdevelopment.micronaut.consul.watch.context.PropertiesChangeHandler;
 
@@ -36,7 +36,7 @@ public final class NativeWatcher extends AbstractWatcher<List<KeyValue>> {
      */
     public NativeWatcher(final List<String> kvPaths,
                          final TaskScheduler taskScheduler,
-                         final IndexConsulClient consulClient,
+                         final WatchConsulClient consulClient,
                          final PropertiesChangeHandler propertiesChangeHandler) {
         super(kvPaths, taskScheduler, consulClient, propertiesChangeHandler);
     }
@@ -50,7 +50,7 @@ public final class NativeWatcher extends AbstractWatcher<List<KeyValue>> {
                 .max(Integer::compareTo)
                 .orElse(NO_INDEX);
         log.debug("Watching kvPath={} with index={}", kvPath, modifiedIndex);
-        return Mono.from(consulClient.readValues(kvPath, true, modifiedIndex));
+        return consulClient.watchValues(kvPath, true, modifiedIndex);
     }
 
     @Override

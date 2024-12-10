@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import com.frogdevelopment.micronaut.consul.watch.client.IndexConsulClient;
+import com.frogdevelopment.micronaut.consul.watch.client.WatchConsulClient;
 import com.frogdevelopment.micronaut.consul.watch.client.KeyValue;
 import com.frogdevelopment.micronaut.consul.watch.context.PropertiesChangeHandler;
 
@@ -35,7 +35,7 @@ public final class ConfigurationsWatcher extends AbstractWatcher<KeyValue> {
      */
     public ConfigurationsWatcher(final List<String> kvPaths,
                                  final TaskScheduler taskScheduler,
-                                 final IndexConsulClient consulClient,
+                                 final WatchConsulClient consulClient,
                                  final PropertiesChangeHandler propertiesChangeHandler,
                                  final PropertySourceReader propertySourceReader) {
         super(kvPaths, taskScheduler, consulClient, propertiesChangeHandler);
@@ -48,7 +48,7 @@ public final class ConfigurationsWatcher extends AbstractWatcher<KeyValue> {
                 .map(KeyValue::getModifyIndex)
                 .orElse(NO_INDEX);
         log.debug("Watching kvPath={} with index={}", kvPath, modifiedIndex);
-        return Mono.from(consulClient.readValues(kvPath, false, modifiedIndex))
+        return consulClient.watchValues(kvPath, false, modifiedIndex)
                 .flatMapMany(Flux::fromIterable)
                 .filter(kv -> kvPath.equals(kv.getKey()))
                 .singleOrEmpty();

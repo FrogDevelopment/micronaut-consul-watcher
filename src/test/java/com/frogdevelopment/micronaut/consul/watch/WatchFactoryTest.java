@@ -29,10 +29,10 @@ import static org.assertj.core.api.AssertionsForClassTypes.catchThrowableOfType;
 import static org.mockito.BDDMockito.given;
 
 @ExtendWith(MockitoExtension.class)
-class WatcherFactoryTest {
+class WatchFactoryTest {
 
     @InjectMocks
-    private WatcherFactory watcherFactory;
+    private WatchFactory watchFactory;
 
     @Mock
     private Environment environment;
@@ -52,7 +52,7 @@ class WatcherFactoryTest {
         given(environment.getActiveNames()).willReturn(Set.of("cloud", "test"));
 
         // when
-        final var watcher = watcherFactory.createWatcher(consulConfiguration);
+        final var watcher = watchFactory.createWatcher(consulConfiguration);
 
         // then
         assertThat(watcher)
@@ -79,7 +79,7 @@ class WatcherFactoryTest {
         given(consulConfiguration.getConfiguration().getFormat()).willReturn(format);
 
         // when
-        final var caught = catchThrowableOfType(ConfigurationException.class, () -> watcherFactory.createWatcher(consulConfiguration));
+        final var caught = catchThrowableOfType(ConfigurationException.class, () -> watchFactory.createWatcher(consulConfiguration));
 
         // then
         assertThat(caught).isNotNull();
@@ -93,7 +93,7 @@ class WatcherFactoryTest {
         given(consulConfiguration.getConfiguration().getFormat()).willReturn(NATIVE);
 
         // when
-        final var watcher = watcherFactory.createWatcher(consulConfiguration);
+        final var watcher = watchFactory.createWatcher(consulConfiguration);
 
         // then
         assertThat(watcher).isInstanceOf(NativeWatcher.class);
@@ -117,7 +117,7 @@ class WatcherFactoryTest {
         given(consulConfiguration.getConfiguration().getFormat()).willReturn(format);
 
         // when
-        final var watcher = watcherFactory.createWatcher(consulConfiguration);
+        final var watcher = watchFactory.createWatcher(consulConfiguration);
 
         // then
         assertThat(watcher).isInstanceOf(ConfigurationsWatcher.class);

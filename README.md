@@ -14,4 +14,5 @@ The watcher can be configured using
 consul:
   watch:
     disabled: false # to disable the watcher, during test for instance
+    block-timeout: 10m # Sets the read timeout. Default value (10 minutes).
 ```
