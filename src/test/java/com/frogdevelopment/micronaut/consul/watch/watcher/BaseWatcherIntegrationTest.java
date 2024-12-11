@@ -6,7 +6,6 @@ import static org.assertj.core.api.SoftAssertions.assertSoftly;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
-import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import jakarta.inject.Inject;
@@ -23,8 +22,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.consul.ConsulContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-
-import com.google.common.util.concurrent.Uninterruptibles;
 
 import io.micronaut.context.BeanContext;
 import io.micronaut.context.annotation.ConfigurationProperties;
@@ -67,9 +64,9 @@ abstract class BaseWatcherIntegrationTest implements TestPropertyProvider {
                 "consul.client.host", consulHost,
                 "consul.client.port", String.valueOf(consulPort),
                 "consul.client.config.path", "test",
-                "consul.watch.disabled", "false",
-                "consul.watch.initialDelay", "1ms",
-                "consul.watch.period", "1s"
+                "consul.watch.read-timeout", "1s",
+                "consul.watch.retry-count", "0",
+                "consul.watch.watch-delay", "1ms"
         );
     }
 
@@ -95,10 +92,10 @@ abstract class BaseWatcherIntegrationTest implements TestPropertyProvider {
                     softAssertions.assertThat(refreshableInnerProperty.getKey().getToBeUpdated()).isEqualTo("foo");
                     softAssertions.assertThat(refreshableBean.keyToBeUpdated).isEqualTo("foo");
                     softAssertions.assertThat(refreshableBean.otherKey).isEqualTo("bar");
-                }));
 
-        // fixme wait for watchers to be ready
-        Uninterruptibles.sleepUninterruptibly(Duration.ofSeconds(2));
+                    final var watcher = beanContext.getBean(Watcher.class);
+                    softAssertions.assertThat(watcher.isWatching()).isTrue();
+                }));
 
         // when
         final var randomFoo = RandomStringUtils.secure().nextAlphanumeric(10);
@@ -107,7 +104,7 @@ abstract class BaseWatcherIntegrationTest implements TestPropertyProvider {
         // then
         Awaitility.with()
                 .await()
-                .atMost(5, SECONDS)
+                .atMost(2, SECONDS)
                 .untilAsserted(() -> assertSoftly(softAssertions -> {
                     softAssertions.assertThat(testEventListener.isEventReceived).as("isEventReceived").isTrue();
                     // refreshableProperty return the new value

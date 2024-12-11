@@ -12,6 +12,11 @@ public interface Watcher {
     void start();
 
     /**
+     * @return {@code true} when the watcher is watching KVs
+     */
+    boolean isWatching();
+
+    /**
      * Stop the watching.
      */
     void stop();

@@ -1,5 +1,0 @@
-consul:
-  watch:
-    read-timeout: 2s
-    retry-count: 0
-    watch-delay: 2s
