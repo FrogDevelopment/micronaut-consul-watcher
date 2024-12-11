@@ -7,9 +7,8 @@ import lombok.RequiredArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.List;
-import jakarta.inject.Named;
 
-import com.frogdevelopment.micronaut.consul.watch.client.IndexConsulClient;
+import com.frogdevelopment.micronaut.consul.watch.client.WatchConsulClient;
 import com.frogdevelopment.micronaut.consul.watch.context.PropertiesChangeHandler;
 import com.frogdevelopment.micronaut.consul.watch.watcher.ConfigurationsWatcher;
 import com.frogdevelopment.micronaut.consul.watch.watcher.NativeWatcher;
@@ -25,8 +24,6 @@ import io.micronaut.context.env.yaml.YamlPropertySourceLoader;
 import io.micronaut.context.exceptions.ConfigurationException;
 import io.micronaut.discovery.consul.ConsulConfiguration;
 import io.micronaut.jackson.core.env.JsonPropertySourceLoader;
-import io.micronaut.scheduling.TaskExecutors;
-import io.micronaut.scheduling.TaskScheduler;
 
 /**
  * Create all needed {@link Watcher} based on configuration.
@@ -36,14 +33,13 @@ import io.micronaut.scheduling.TaskScheduler;
  */
 @Factory
 @RequiredArgsConstructor
-public class WatcherFactory {
+public class WatchFactory {
 
     private static final String CONSUL_PATH_SEPARATOR = "/";
 
     private final Environment environment;
-    @Named(TaskExecutors.SCHEDULED)
-    private final TaskScheduler taskScheduler;
-    private final IndexConsulClient consulClient;
+    private final WatchConsulClient consulClient;
+    private final WatchConfiguration watchConfiguration;
     private final PropertiesChangeHandler propertiesChangeHandler;
 
     @Context
@@ -106,11 +102,11 @@ public class WatcherFactory {
     private Watcher watchNative(final List<String> keyPaths) {
         // adding '/' at the end of the kvPath to distinct 'kvPath/' from 'kvPath,profile/'
         final var kvPaths = keyPaths.stream().map(path -> path + CONSUL_PATH_SEPARATOR).toList();
-        return new NativeWatcher(kvPaths, taskScheduler, consulClient, propertiesChangeHandler);
+        return new NativeWatcher(kvPaths, consulClient, watchConfiguration, propertiesChangeHandler);
     }
 
     private Watcher watchConfigurations(final List<String> kvPaths, final PropertySourceLoader propertySourceLoader) {
-        return new ConfigurationsWatcher(kvPaths, taskScheduler, consulClient, propertiesChangeHandler, propertySourceLoader);
+        return new ConfigurationsWatcher(kvPaths, consulClient, watchConfiguration, propertiesChangeHandler, propertySourceLoader);
     }
 
 }

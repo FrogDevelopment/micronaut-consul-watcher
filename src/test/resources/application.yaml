@@ -1,4 +1,5 @@
 consul:
-  client:
-    read-idle-timeout: 15s
-    read-timeout: 30s
+  watch:
+    read-timeout: 2s
+    retry-count: 0
+    watch-delay: 2s

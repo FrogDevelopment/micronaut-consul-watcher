@@ -9,13 +9,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import com.frogdevelopment.micronaut.consul.watch.client.IndexConsulClient;
+import com.frogdevelopment.micronaut.consul.watch.WatchConfiguration;
 import com.frogdevelopment.micronaut.consul.watch.client.KeyValue;
+import com.frogdevelopment.micronaut.consul.watch.client.WatchConsulClient;
 import com.frogdevelopment.micronaut.consul.watch.context.PropertiesChangeHandler;
 
 import io.micronaut.context.env.PropertySourceReader;
 import io.micronaut.core.util.StringUtils;
-import io.micronaut.scheduling.TaskScheduler;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -34,11 +34,11 @@ public final class ConfigurationsWatcher extends AbstractWatcher<KeyValue> {
      * Default constructor
      */
     public ConfigurationsWatcher(final List<String> kvPaths,
-                                 final TaskScheduler taskScheduler,
-                                 final IndexConsulClient consulClient,
+                                 final WatchConsulClient consulClient,
+                                 final WatchConfiguration watchConfiguration,
                                  final PropertiesChangeHandler propertiesChangeHandler,
                                  final PropertySourceReader propertySourceReader) {
-        super(kvPaths, taskScheduler, consulClient, propertiesChangeHandler);
+        super(kvPaths, consulClient, watchConfiguration, propertiesChangeHandler);
         this.propertySourceReader = propertySourceReader;
     }
 
@@ -48,7 +48,7 @@ public final class ConfigurationsWatcher extends AbstractWatcher<KeyValue> {
                 .map(KeyValue::getModifyIndex)
                 .orElse(NO_INDEX);
         log.debug("Watching kvPath={} with index={}", kvPath, modifiedIndex);
-        return Mono.from(consulClient.readValues(kvPath, false, modifiedIndex))
+        return consulClient.watchValues(kvPath, false, modifiedIndex)
                 .flatMapMany(Flux::fromIterable)
                 .filter(kv -> kvPath.equals(kv.getKey()))
                 .singleOrEmpty();

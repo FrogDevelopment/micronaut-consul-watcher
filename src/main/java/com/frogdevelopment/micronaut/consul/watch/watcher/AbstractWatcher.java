@@ -3,21 +3,19 @@ package com.frogdevelopment.micronaut.consul.watch.watcher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.frogdevelopment.micronaut.consul.watch.client.IndexConsulClient;
+import com.frogdevelopment.micronaut.consul.watch.WatchConfiguration;
 import com.frogdevelopment.micronaut.consul.watch.client.KeyValue;
+import com.frogdevelopment.micronaut.consul.watch.client.WatchConsulClient;
 import com.frogdevelopment.micronaut.consul.watch.context.PropertiesChangeHandler;
 
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.http.client.exceptions.ReadTimeoutException;
-import io.micronaut.http.client.exceptions.ResponseClosedException;
-import io.micronaut.scheduling.TaskScheduler;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 
@@ -30,11 +28,10 @@ import reactor.core.publisher.Mono;
 abstract sealed class AbstractWatcher<V> implements Watcher permits ConfigurationsWatcher, NativeWatcher {
 
     protected static final Integer NO_INDEX = null;
-    private static final int WATCH_DELAY = 1000;
 
     private final List<String> kvPaths;
-    private final TaskScheduler taskScheduler;
-    protected final IndexConsulClient consulClient;
+    protected final WatchConsulClient consulClient;
+    private final WatchConfiguration watchConfiguration;
     private final PropertiesChangeHandler propertiesChangeHandler;
 
     protected final Map<String, V> kvHolder = new ConcurrentHashMap<>();
@@ -52,7 +49,8 @@ abstract sealed class AbstractWatcher<V> implements Watcher permits Configuratio
         try {
             log.debug("Starting KVs watcher");
             watching = true;
-            kvPaths.forEach(kvPath -> watchKvPath(kvPath, 0));
+            kvPaths.parallelStream()
+                    .forEach(kvPath -> watchKvPath(kvPath, 0));
         } catch (final Exception e) {
             log.error("Error watching configurations", e);
             stop();
@@ -81,16 +79,16 @@ abstract sealed class AbstractWatcher<V> implements Watcher permits Configuratio
     }
 
     private void watchKvPath(final String kvPath, final int nbFailures) {
-        taskScheduler.schedule(Duration.ofMillis(WATCH_DELAY), () -> {
             if (!watching) {
                 log.warn("Watcher is not started");
                 return;
             }
-            final var disposable = watchValue(kvPath)
+            // delaying to avoid flood caused by multiple consecutive calls
+            final var disposable = Mono.delay(watchConfiguration.getWatchDelay())
+                    .then(watchValue(kvPath))
                     .subscribe(next -> onNext(kvPath, next), throwable -> onError(kvPath, throwable, nbFailures));
 
             listeners.put(kvPath, disposable);
-        });
     }
 
     protected abstract Mono<V> watchValue(String kvPath);
@@ -118,9 +116,9 @@ abstract sealed class AbstractWatcher<V> implements Watcher permits Configuratio
 
     private void onError(String kvPath, Throwable throwable, int nbFailures) {
         if (throwable instanceof final HttpClientResponseException e && e.getStatus() == HttpStatus.NOT_FOUND) {
-            log.debug("No KV found with kvPath={}", kvPath);
+            log.trace("No KV found with kvPath={}", kvPath);
             listeners.remove(kvPath);
-        } else if (throwable instanceof ReadTimeoutException || throwable instanceof ResponseClosedException) {
+        } else if (throwable instanceof ReadTimeoutException) {
             log.debug("Exception [{}] for kvPath={}", throwable, kvPath);
             watchKvPath(kvPath, 0);
         } else {

@@ -11,7 +11,7 @@
     </appender>
 
     <logger name="com.frogdevelopment.micronaut.consul.watch" level="DEBUG"/>
-<!--    <logger name="io.micronaut.http.client" level="TRACE"/>-->
+    <logger name="io.micronaut.http.client" level="DEBUG"/>
 
     <root level="info">
         <appender-ref ref="STDOUT"/>
