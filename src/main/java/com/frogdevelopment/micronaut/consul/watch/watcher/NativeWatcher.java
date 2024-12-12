@@ -42,7 +42,7 @@ public final class NativeWatcher extends AbstractWatcher<List<KeyValue>> {
     }
 
     @Override
-    protected Mono<List<KeyValue>> watchValue(String kvPath) {
+    protected Mono<List<KeyValue>> watchValue(final String kvPath) {
         final var modifiedIndex = Optional.ofNullable(kvHolder.get(kvPath))
                 .stream()
                 .flatMap(List::stream)

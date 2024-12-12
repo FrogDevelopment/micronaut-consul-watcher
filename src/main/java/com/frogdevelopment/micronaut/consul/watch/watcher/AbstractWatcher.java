@@ -100,7 +100,7 @@ abstract sealed class AbstractWatcher<V> implements Watcher permits Configuratio
 
     protected abstract Mono<V> watchValue(String kvPath);
 
-    private void onNext(String kvPath, final V next) {
+    private void onNext(final String kvPath, final V next) {
         final var previous = kvHolder.put(kvPath, next);
 
         if (previous == null) {
@@ -121,7 +121,7 @@ abstract sealed class AbstractWatcher<V> implements Watcher permits Configuratio
 
     protected abstract Map<String, Object> readValue(final V keyValue);
 
-    private void onError(String kvPath, Throwable throwable) {
+    private void onError(final String kvPath, final Throwable throwable) {
         if (throwable instanceof final HttpClientResponseException e && e.getStatus() == HttpStatus.NOT_FOUND) {
             log.trace("No KV found with kvPath={}", kvPath);
             listeners.remove(kvPath);

@@ -49,7 +49,7 @@ public class WatchConfiguration extends HttpClientConfiguration {
     }
 
     @Override
-    public void setReadTimeout(@Nullable Duration readTimeout) {
+    public void setReadTimeout(@Nullable final Duration readTimeout) {
         this.readTimeout = readTimeout;
     }
 
@@ -62,7 +62,7 @@ public class WatchConfiguration extends HttpClientConfiguration {
      *
      * @param watchDelay The read timeout
      */
-    public void setWatchDelay(Duration watchDelay) {
+    public void setWatchDelay(final Duration watchDelay) {
         this.watchDelay = watchDelay;
     }
 }

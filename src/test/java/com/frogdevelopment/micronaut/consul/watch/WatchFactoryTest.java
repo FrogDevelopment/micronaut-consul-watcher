@@ -1,13 +1,15 @@
 package com.frogdevelopment.micronaut.consul.watch;
 
-import com.frogdevelopment.micronaut.consul.watch.context.PropertiesChangeHandler;
-import com.frogdevelopment.micronaut.consul.watch.watcher.ConfigurationsWatcher;
-import com.frogdevelopment.micronaut.consul.watch.watcher.NativeWatcher;
-import io.micronaut.context.env.Environment;
-import io.micronaut.context.exceptions.ConfigurationException;
-import io.micronaut.discovery.config.ConfigDiscoveryConfiguration.Format;
-import io.micronaut.discovery.consul.ConsulConfiguration;
-import io.micronaut.discovery.consul.client.v1.ConsulClient;
+import static io.micronaut.discovery.config.ConfigDiscoveryConfiguration.Format.NATIVE;
+import static io.micronaut.discovery.config.ConfigDiscoveryConfiguration.Format.YAML;
+import static org.assertj.core.api.Assertions.as;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.catchThrowableOfType;
+import static org.mockito.BDDMockito.given;
+
+import java.util.Optional;
+import java.util.Set;
+
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,15 +20,13 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Optional;
-import java.util.Set;
+import com.frogdevelopment.micronaut.consul.watch.watcher.ConfigurationsWatcher;
+import com.frogdevelopment.micronaut.consul.watch.watcher.NativeWatcher;
 
-import static io.micronaut.discovery.config.ConfigDiscoveryConfiguration.Format.NATIVE;
-import static io.micronaut.discovery.config.ConfigDiscoveryConfiguration.Format.YAML;
-import static org.assertj.core.api.Assertions.as;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.catchThrowableOfType;
-import static org.mockito.BDDMockito.given;
+import io.micronaut.context.env.Environment;
+import io.micronaut.context.exceptions.ConfigurationException;
+import io.micronaut.discovery.config.ConfigDiscoveryConfiguration.Format;
+import io.micronaut.discovery.consul.ConsulConfiguration;
 
 @ExtendWith(MockitoExtension.class)
 class WatchFactoryTest {
@@ -38,10 +38,6 @@ class WatchFactoryTest {
     private Environment environment;
     @Mock(answer = Answers.RETURNS_DEEP_STUBS)
     private ConsulConfiguration consulConfiguration;
-    @Mock
-    private ConsulClient consulClient;
-    @Mock
-    private PropertiesChangeHandler propertiesChangeHandler;
 
     @Test
     void should_create_required_watchers() {
