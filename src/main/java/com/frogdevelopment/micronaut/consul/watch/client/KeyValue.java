@@ -22,7 +22,7 @@ public class KeyValue {
      * @param value The value
      */
     @JsonCreator
-    public KeyValue(@JsonProperty("ModifyIndex") Integer modifyIndex, @JsonProperty("Key") String key, @JsonProperty("Value") String value) {
+    public KeyValue(@JsonProperty("ModifyIndex") final Integer modifyIndex, @JsonProperty("Key") final String key, @JsonProperty("Value") final String value) {
         this.modifyIndex = modifyIndex;
         this.key = key;
         this.value = value;

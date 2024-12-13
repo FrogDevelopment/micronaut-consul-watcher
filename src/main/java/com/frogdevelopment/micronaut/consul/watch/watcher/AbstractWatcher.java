@@ -38,19 +38,20 @@ abstract sealed class AbstractWatcher<V> implements Watcher permits Configuratio
     private final Map<String, Disposable> listeners = new ConcurrentHashMap<>();
 
     private final Base64.Decoder base64Decoder = Base64.getDecoder();
-    private volatile boolean watching = false;
+    private volatile boolean started = false;
+    private volatile boolean isInit = false;
 
     @Override
     public void start() {
-        if (watching) {
+        if (started) {
             throw new IllegalStateException("Watcher is already started");
         }
 
         try {
             log.debug("Starting KVs watcher");
-            watching = true;
+            started = true;
             kvPaths.parallelStream()
-                    .forEach(kvPath -> watchKvPath(kvPath, 0));
+                    .forEach(this::watchKvPath);
         } catch (final Exception e) {
             log.error("Error watching configurations", e);
             stop();
@@ -58,8 +59,13 @@ abstract sealed class AbstractWatcher<V> implements Watcher permits Configuratio
     }
 
     @Override
+    public boolean isWatching() {
+        return started && isInit;
+    }
+
+    @Override
     public void stop() {
-        if (!watching) {
+        if (!started) {
             log.warn("You tried to stop an unstarted Watcher");
             return;
         }
@@ -75,25 +81,26 @@ abstract sealed class AbstractWatcher<V> implements Watcher permits Configuratio
         });
         listeners.clear();
         kvHolder.clear();
-        watching = false;
+        started = false;
+        isInit = false;
     }
 
-    private void watchKvPath(final String kvPath, final int nbFailures) {
-            if (!watching) {
+    private void watchKvPath(final String kvPath) {
+            if (!started) {
                 log.warn("Watcher is not started");
                 return;
             }
             // delaying to avoid flood caused by multiple consecutive calls
             final var disposable = Mono.delay(watchConfiguration.getWatchDelay())
                     .then(watchValue(kvPath))
-                    .subscribe(next -> onNext(kvPath, next), throwable -> onError(kvPath, throwable, nbFailures));
+                    .subscribe(next -> onNext(kvPath, next), throwable -> onError(kvPath, throwable));
 
             listeners.put(kvPath, disposable);
     }
 
     protected abstract Mono<V> watchValue(String kvPath);
 
-    private void onNext(String kvPath, final V next) {
+    private void onNext(final String kvPath, final V next) {
         final var previous = kvHolder.put(kvPath, next);
 
         if (previous == null) {
@@ -107,30 +114,29 @@ abstract sealed class AbstractWatcher<V> implements Watcher permits Configuratio
             propertiesChangeHandler.handleChanges(new WatchResult(kvPath, previousValue, nextValue));
         }
 
-        watchKvPath(kvPath, 0);
+        watchKvPath(kvPath);
     }
 
     protected abstract boolean areEqual(final V previous, final V next);
 
     protected abstract Map<String, Object> readValue(final V keyValue);
 
-    private void onError(String kvPath, Throwable throwable, int nbFailures) {
+    private void onError(final String kvPath, final Throwable throwable) {
         if (throwable instanceof final HttpClientResponseException e && e.getStatus() == HttpStatus.NOT_FOUND) {
             log.trace("No KV found with kvPath={}", kvPath);
             listeners.remove(kvPath);
         } else if (throwable instanceof ReadTimeoutException) {
-            log.debug("Exception [{}] for kvPath={}", throwable, kvPath);
-            watchKvPath(kvPath, 0);
+            log.debug("Timeout for kvPath={}", kvPath);
+            watchKvPath(kvPath);
         } else {
             log.error("Watching kvPath={} failed", kvPath, throwable);
-            if (nbFailures <= 3) {
-                watchKvPath(kvPath, nbFailures + 1);
-            }
+            listeners.remove(kvPath);
         }
     }
 
     private void handleInit(final String kvPath) {
         log.debug("Init watcher for kvPath={}", kvPath);
+        this.isInit = true;
     }
 
     private void handleNoChange(final String kvPath) {

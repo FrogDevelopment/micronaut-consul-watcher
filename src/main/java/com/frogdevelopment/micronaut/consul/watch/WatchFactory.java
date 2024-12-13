@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.List;
+import jakarta.inject.Singleton;
 
 import com.frogdevelopment.micronaut.consul.watch.client.WatchConsulClient;
 import com.frogdevelopment.micronaut.consul.watch.context.PropertiesChangeHandler;
@@ -14,8 +15,6 @@ import com.frogdevelopment.micronaut.consul.watch.watcher.ConfigurationsWatcher;
 import com.frogdevelopment.micronaut.consul.watch.watcher.NativeWatcher;
 import com.frogdevelopment.micronaut.consul.watch.watcher.Watcher;
 
-import io.micronaut.context.annotation.Bean;
-import io.micronaut.context.annotation.Context;
 import io.micronaut.context.annotation.Factory;
 import io.micronaut.context.env.Environment;
 import io.micronaut.context.env.PropertiesPropertySourceLoader;
@@ -42,22 +41,19 @@ public class WatchFactory {
     private final WatchConfiguration watchConfiguration;
     private final PropertiesChangeHandler propertiesChangeHandler;
 
-    @Context
-    @Bean(preDestroy = "stop")
+    @Singleton
     Watcher createWatcher(final ConsulConfiguration consulConfiguration) {
         final var kvPaths = computeKvPaths(consulConfiguration);
 
         final var format = consulConfiguration.getConfiguration().getFormat();
-        final var watcher = switch (format) {
+
+        return switch (format) {
             case NATIVE -> watchNative(kvPaths);
             case JSON -> watchConfigurations(kvPaths, new JsonPropertySourceLoader());
             case YAML -> watchConfigurations(kvPaths, new YamlPropertySourceLoader());
             case PROPERTIES -> watchConfigurations(kvPaths, new PropertiesPropertySourceLoader());
             default -> throw new ConfigurationException("Unhandled configuration format: " + format);
         };
-
-        watcher.start();
-        return watcher;
     }
 
     private List<String> computeKvPaths(final ConsulConfiguration consulConfiguration) {
