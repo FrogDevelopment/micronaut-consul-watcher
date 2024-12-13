@@ -3,6 +3,8 @@ plugins {
     id("com.frogdevelopment.version-convention")
     id("com.frogdevelopment.jreleaser.deploy-convention")
     id("com.frogdevelopment.jreleaser.publish-convention")
+    id("jacoco")
+    id("org.sonarqube") version "6.0.1.5171"
 }
 
 repositories {
@@ -53,5 +55,39 @@ micronaut {
     processing {
         incremental(true)
         annotations("com.frogdevelopment.micronaut.consul.*")
+    }
+}
+
+jacoco {
+    toolVersion = "0.8.12"
+}
+
+tasks {
+    named<Test>("test") {
+        reports {
+            html.required.set(false)
+        }
+    }
+
+    named<JacocoReport>("jacocoTestReport") {
+        reports {
+            xml.required.set(true)
+            csv.required.set(false)
+            html.required.set(false)
+        }
+    }
+}
+
+sonar {
+    properties {
+        property("sonar.projectKey", "FrogDevelopment_micronaut-consul-watcher")
+        property("sonar.organization", "frogdevelopment")
+        property("sonar.host.url", "https://sonarcloud.io")
+        property("sonar.coverage.jacoco.xmlReportPaths", "build/reports/jacoco/test/jacocoTestReport.xml")
+        property("sonar.junit.reportPaths", "build/test-results/test")
+        property("sonar.sources", "src/main/")
+        property("sonar.tests", "src/test/")
+        property("sonar.inclusions", "src/main/**/*")
+        property("sonar.test.exclusions", "src/test/**/*")
     }
 }
