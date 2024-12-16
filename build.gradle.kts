@@ -1,10 +1,10 @@
 plugins {
-    id("io.micronaut.minimal.library") version "4.4.4"
-    id("com.frogdevelopment.version-convention")
-    id("com.frogdevelopment.jreleaser.deploy-convention")
-    id("com.frogdevelopment.jreleaser.publish-convention")
-    id("jacoco")
-    id("org.sonarqube") version "6.0.1.5171"
+    alias(libs.plugins.micronaut.minimal.library)
+    alias(libs.plugins.frogdevelopment.version)
+    alias(libs.plugins.frogdevelopment.publish)
+    alias(libs.plugins.frogdevelopment.deploy)
+    alias(libs.plugins.sonar)
+    jacoco
 }
 
 repositories {
@@ -27,10 +27,6 @@ dependencies {
     implementation(mn.guava)
 
     // ----------- TESTS -----------
-    val awaitility = "4.2.2"
-    val testcontainers = mn.versions.testcontainers.asProvider().get()
-    val commonsLang3 = "3.17.0"
-
     testAnnotationProcessor(mn.lombok)
     testAnnotationProcessor(mn.micronaut.inject.java)
 
@@ -45,9 +41,9 @@ dependencies {
     testImplementation(mn.micronaut.http.client)
     testImplementation(mn.mockito.junit.jupiter)
     testImplementation(mn.testcontainers.consul)
-    testImplementation("org.apache.commons:commons-lang3:${commonsLang3}")
-    testImplementation("org.awaitility:awaitility:${awaitility}")
-    testImplementation("org.testcontainers:junit-jupiter:$testcontainers")
+    testImplementation(libs.commons.lang3)
+    testImplementation(libs.awaitility)
+    testImplementation(libs.testcontainers.junit5)
 }
 
 micronaut {
@@ -59,7 +55,7 @@ micronaut {
 }
 
 jacoco {
-    toolVersion = "0.8.12"
+    toolVersion = libs.versions.tools.jacoco.get()
 }
 
 tasks {

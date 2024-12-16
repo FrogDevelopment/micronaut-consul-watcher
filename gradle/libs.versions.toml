@@ -1,0 +1,22 @@
+[versions]
+micronaut = "4.7.2"
+
+awaitility = "4.2.2"
+commons-lang3 = "3.17.0"
+
+tools-jacoco = "0.8.12"
+
+plugin-sonar = "6.0.1.5171"
+plugin-micronaut = "4.4.4"
+
+[libraries]
+commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
+awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" }
+testcontainers-junit5 = { module = "org.testcontainers:junit-jupiter" }
+
+[plugins]
+frogdevelopment-version = { id = "com.frogdevelopment.version-convention" }
+frogdevelopment-deploy = { id = "com.frogdevelopment.jreleaser.deploy-convention" }
+frogdevelopment-publish = { id = "com.frogdevelopment.jreleaser.publish-convention" }
+micronaut-minimal-library = { id = "io.micronaut.minimal.library", version.ref = "plugin-micronaut" }
+sonar = { id = "org.sonarqube", version.ref = "plugin-sonar" }
