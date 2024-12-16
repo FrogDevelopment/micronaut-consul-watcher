@@ -40,9 +40,7 @@ consul:
 
   watch:
     disabled: false # to disable the watcher, during test for instance
-    retry-count: 3 # The maximum number of retry attempts 
-    retry-delay: 1s # The delay between retry attempts
-    read-timeout: 10m # Sets the watch timeout
+    wait-timeout: 10m # Sets the maximum duration for the blocking request
     watch-delay: 500ms # Sets the watch delay before each call to avoid flooding
 ```
 
