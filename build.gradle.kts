@@ -85,5 +85,7 @@ sonar {
         property("sonar.tests", "src/test/")
         property("sonar.inclusions", "src/main/**/*")
         property("sonar.test.exclusions", "src/test/**/*")
+        property("sonar.pullrequest.provider", "github")
+        property("sonar.pullrequest.github.endpoint", "https://api.github.com/")
     }
 }
