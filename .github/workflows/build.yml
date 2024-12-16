@@ -36,12 +36,12 @@ jobs:
 
       - name: Compile & Test
         run: ./gradlew test
-#
-#      - name: Publish Unit Test Results
-#        uses: EnricoMi/publish-unit-test-result-action@v2
-#        if: always()
-#        with:
-#          files: '**/test-results/**/*.xml'
+
+      - name: Publish Unit Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: '**/test-results/**/*.xml'
 
       - name: Cache SonarQube packages
         uses: actions/cache@v4
