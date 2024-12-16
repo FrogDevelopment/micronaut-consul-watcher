@@ -8,20 +8,36 @@
 [![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=FrogDevelopment_micronaut-consul-watcher&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=FrogDevelopment_micronaut-consul-watcher)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=FrogDevelopment_micronaut-consul-watcher&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=FrogDevelopment_micronaut-consul-watcher)
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=FrogDevelopment_micronaut-consul-watcher&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=FrogDevelopment_micronaut-consul-watcher)
+
 # Micronaut Consul Watcher
 
-Update Micronaut Context and publish a `RefreshEvent` when a change is detected in a KV used for configurations.  
-Current format supported are
+The watcher calls the [KV Store API](https://developer.hashicorp.com/consul/api-docs/kv) to watch all keys used for the distributed configurations,
+using [Blocking Queries](https://developer.hashicorp.com/consul/api-docs/features/blocking)
+to wait for any changes made on those keys.  
+If no change occurred during the `read-timeout` duration, the query will be re-executed after the `watch-delay`.  
+When a change is detected in a KV used for configurations,
+the corresponding Property Source will be updated and a `RefreshEvent` published.  
 
-- `NATIVE`
-- `JSON`
-- `PROPERTIES`
-- `YAML`
+See [Micronaut > Refreshable Scope](https://docs.micronaut.io/latest/guide/index.html#refreshable) for more details
+
+## Configuration
 
 The watcher can be configured using
 
 ```yaml
+micronaut:
+  application:
+    name: hello-world
+  config-client:
+    enabled: true
+
 consul:
+  client:
+    defaultZone: "${CONSUL_HOST:localhost}:${CONSUL_PORT:8500}"
+    config:
+      format: YAML
+      path: /config
+
   watch:
     disabled: false # to disable the watcher, during test for instance
     retry-count: 3 # The maximum number of retry attempts 
@@ -29,3 +45,13 @@ consul:
     read-timeout: 10m # Sets the watch timeout
     watch-delay: 500ms # Sets the watch delay before each call to avoid flooding
 ```
+
+Formats supported are
+
+- `NATIVE`
+- `JSON`
+- `PROPERTIES`
+- `YAML`
+
+Read [Micronaut > Distributed Configuration > HashiCorp Consul Support](https://docs.micronaut.io/latest/guide/index.html#distributedConfigurationConsul)
+for more details.
