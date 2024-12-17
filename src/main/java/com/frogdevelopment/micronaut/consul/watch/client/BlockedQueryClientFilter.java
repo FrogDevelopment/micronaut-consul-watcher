@@ -22,7 +22,7 @@ public class BlockedQueryClientFilter {
     public void filter(final MutableHttpRequest<?> request) {
         final var parameters = request.getParameters();
         if (parameters.contains("index")) {
-            parameters.add("wait", watchConfiguration.getWaitTimeout());
+            parameters.add("wait", watchConfiguration.getMaxWaitDuration());
         }
     }
 }

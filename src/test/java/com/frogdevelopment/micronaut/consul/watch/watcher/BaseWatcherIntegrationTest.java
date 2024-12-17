@@ -64,9 +64,8 @@ abstract class BaseWatcherIntegrationTest implements TestPropertyProvider {
                 "consul.client.host", consulHost,
                 "consul.client.port", String.valueOf(consulPort),
                 "consul.client.config.path", "test",
-                "consul.watch.read-timeout", "1s",
-                "consul.watch.retry-count", "0",
-                "consul.watch.watch-delay", "1ms"
+                "consul.watch.max-wait-duration", "1s",
+                "consul.watch.delay-duration", "1ms"
         );
     }
 

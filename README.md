@@ -14,9 +14,9 @@
 The watcher calls the [KV Store API](https://developer.hashicorp.com/consul/api-docs/kv) to watch all keys used for the distributed configurations,
 using [Blocking Queries](https://developer.hashicorp.com/consul/api-docs/features/blocking)
 to wait for any changes made on those keys.  
-If no change occurred during the `read-timeout` duration, the query will be re-executed after the `watch-delay`.  
+If no change occurred during the `max-wait-duration`, the query will be re-executed after the `delay-duration`.  
 When a change is detected in a KV used for configurations,
-the corresponding Property Source will be updated and a `RefreshEvent` published.  
+the corresponding `PropertySource` will be updated and a `RefreshEvent` published.  
 
 See [Micronaut > Refreshable Scope](https://docs.micronaut.io/latest/guide/index.html#refreshable) for more details
 
@@ -40,8 +40,8 @@ consul:
 
   watch:
     disabled: false # to disable the watcher, during test for instance
-    wait-timeout: 10m # Sets the maximum duration for the blocking request
-    watch-delay: 500ms # Sets the watch delay before each call to avoid flooding
+    max-wait-duration: 10m # Sets the maximum duration for the blocking request
+    delay-duration: 50ms # Sets the watch delay before each call to avoid flooding
 ```
 
 Formats supported are
