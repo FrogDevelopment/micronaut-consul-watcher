@@ -126,7 +126,7 @@ abstract sealed class AbstractWatcher<V> implements Watcher permits Configuratio
             log.trace("No KV found with kvPath={}", kvPath);
             listeners.remove(kvPath);
         } else if (throwable instanceof ReadTimeoutException) {
-            log.debug("Timeout for kvPath={}", kvPath);
+            log.warn("Timeout for kvPath={}", kvPath);
             watchKvPath(kvPath);
         } else {
             log.error("Watching kvPath={} failed", kvPath, throwable);

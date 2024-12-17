@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.core.annotation.Nullable;
+import io.micronaut.core.convert.ConversionService;
 import io.micronaut.discovery.consul.ConsulConfiguration;
 import io.micronaut.discovery.consul.condition.RequiresConsul;
 import io.micronaut.http.client.HttpClientConfiguration;
@@ -13,14 +14,14 @@ import io.micronaut.http.client.HttpClientConfiguration;
 @ConfigurationProperties(WatchConfiguration.PREFIX)
 public class WatchConfiguration extends HttpClientConfiguration {
 
-    public static final String EXPR_CONSUL_WATCH_RETRY_COUNT = "${" + WatchConfiguration.PREFIX + ".retry-count:3}";
-    public static final String EXPR_CONSUL_WATCH_RETRY_DELAY = "${" + WatchConfiguration.PREFIX + ".retry-delay:1s}";
+    /**
+     * The default wait timeout in minutes.
+     */
+    public static final String DEFAULT_WAIT_TIMEOUT_MINUTES = "10m";
 
     /**
-     * The default block timeout in minutes.
+     * The default watch delay in milliseconds.
      */
-    public static final long DEFAULT_BLOCK_TIMEOUT_MINUTES = 10;
-
     public static final long DEFAULT_WATCH_DELAY_MILLISECONDS = 500;
 
     /**
@@ -28,14 +29,25 @@ public class WatchConfiguration extends HttpClientConfiguration {
      */
     public static final String PREFIX = "consul.watch";
 
-    private Duration readTimeout = Duration.ofMinutes(DEFAULT_BLOCK_TIMEOUT_MINUTES);
+    private String waitTimeout = DEFAULT_WAIT_TIMEOUT_MINUTES;
     private Duration watchDelay = Duration.ofSeconds(DEFAULT_WATCH_DELAY_MILLISECONDS);
+    private Duration readTimeout = null;
 
     private final ConsulConfiguration consulConfiguration;
+    private final ConversionService conversionService;
 
-    public WatchConfiguration(final ConsulConfiguration consulConfiguration) {
+    /**
+     * Default constructor
+     *
+     * @param consulConfiguration {@link ConsulConfiguration} use as base.
+     * @param conversionService   Use to calculate the {@link #readTimeout} from the {@link #waitTimeout}.
+     * @see ConsulConfiguration
+     */
+    public WatchConfiguration(final ConsulConfiguration consulConfiguration,
+                              final ConversionService conversionService) {
         super(consulConfiguration);
         this.consulConfiguration = consulConfiguration;
+        this.conversionService = conversionService;
     }
 
     @Override
@@ -43,24 +55,54 @@ public class WatchConfiguration extends HttpClientConfiguration {
         return consulConfiguration.getConnectionPoolConfiguration();
     }
 
+    /**
+     * @return The read timeout, depending on the {@link #waitTimeout} value.
+     */
     @Override
     public Optional<Duration> getReadTimeout() {
-        return Optional.ofNullable(readTimeout);
+        if (this.readTimeout == null) {
+            this.readTimeout = calculateReadTimeout();
+        }
+        return Optional.of(this.readTimeout);
     }
 
-    @Override
-    public void setReadTimeout(@Nullable final Duration readTimeout) {
-        this.readTimeout = readTimeout;
+    private Duration calculateReadTimeout() {
+        final var waitValue = Optional.ofNullable(getWaitTimeout())
+                .orElse(DEFAULT_WAIT_TIMEOUT_MINUTES);
+
+        final var duration = conversionService.convertRequired(waitValue, Duration.class);
+        // to have the client timeout greater than the wait of the Blocked Query
+        return duration.plusMillis(duration.toMillis() / 16);
     }
 
+    /**
+     * @return The wait timeout. Defaults to {@value DEFAULT_WAIT_TIMEOUT_MINUTES}.
+     */
+    public String getWaitTimeout() {
+        return this.waitTimeout;
+    }
+
+    /**
+     * Specify the maximum duration for the blocking request. Default value ({@value #DEFAULT_WAIT_TIMEOUT_MINUTES}).
+     *
+     * @param waitTimeout The wait timeout
+     */
+    public void setWaitTimeout(@Nullable final String waitTimeout) {
+        this.waitTimeout = waitTimeout;
+        this.readTimeout = calculateReadTimeout();
+    }
+
+    /**
+     * @return The watch delay. Defaults to {@value DEFAULT_WATCH_DELAY_MILLISECONDS} milliseconds.
+     */
     public Duration getWatchDelay() {
-        return watchDelay;
+        return this.watchDelay;
     }
 
     /**
      * Sets the watch delay before each call to avoid flooding. Default value ({@value #DEFAULT_WATCH_DELAY_MILLISECONDS} milliseconds).
      *
-     * @param watchDelay The read timeout
+     * @param watchDelay The watch delay
      */
     public void setWatchDelay(final Duration watchDelay) {
         this.watchDelay = watchDelay;

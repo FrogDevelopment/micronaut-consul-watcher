@@ -300,7 +300,7 @@ class WatcherTest {
         given(consulClient.watchValues("path/to/timeout", false, null)).willReturn(Mono.error(exception));
         given(watchConfiguration.getWatchDelay()).willReturn(Duration.ofMillis(500));
 
-        CLASS_LOGGER.setLevel(Level.DEBUG);
+        CLASS_LOGGER.setLevel(Level.WARN);
 
         // when
         watcher.start();
@@ -313,6 +313,8 @@ class WatcherTest {
                     then(propertiesChangeHandler).shouldHaveNoInteractions();
 
                     softAssertions.assertThat(listAppender.list)
+                            .filteredOn(event -> event.getLevel().equals(Level.WARN))
+                            .hasSize(1)
                             .extracting(ILoggingEvent::getFormattedMessage)
                             .contains("Timeout for kvPath=path/to/timeout");
                 }));
