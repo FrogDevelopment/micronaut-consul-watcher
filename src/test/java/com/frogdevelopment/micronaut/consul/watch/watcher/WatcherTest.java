@@ -98,7 +98,7 @@ class WatcherTest {
                 .willReturn(Mono.delay(Duration.ofSeconds(10))
                         .thenReturn(List.of(newKeyValue))); // no change
 
-        given(watchConfiguration.getWatchDelay()).willReturn(Duration.ZERO);
+        given(watchConfiguration.getDelayDuration()).willReturn(Duration.ZERO);
 
         // when
         watcher.start();
@@ -159,7 +159,7 @@ class WatcherTest {
                 .willReturn(Mono.delay(Duration.ofMillis(200))
                         .thenReturn(nextKvs)); // no change
 
-        given(watchConfiguration.getWatchDelay()).willReturn(Duration.ZERO);
+        given(watchConfiguration.getDelayDuration()).willReturn(Duration.ZERO);
 
         // when
         watcher.start();
@@ -209,7 +209,7 @@ class WatcherTest {
         given(consulClient.watchValues("path/to/global_error", false, 0))
                 .willReturn(Mono.just(List.of(newKeyValue))); // change
 
-        given(watchConfiguration.getWatchDelay()).willReturn(Duration.ZERO);
+        given(watchConfiguration.getDelayDuration()).willReturn(Duration.ZERO);
         CLASS_LOGGER.setLevel(Level.ERROR);
 
         // when
@@ -240,7 +240,7 @@ class WatcherTest {
         given(response.getStatus()).willReturn(HttpStatus.NOT_FOUND);
         final var exception = new HttpClientResponseException("boom", response);
         given(consulClient.watchValues("path/to/NOT_FOUND", false, null)).willReturn(Mono.error(exception));
-        given(watchConfiguration.getWatchDelay()).willReturn(Duration.ZERO);
+        given(watchConfiguration.getDelayDuration()).willReturn(Duration.ZERO);
 
         CLASS_LOGGER.setLevel(Level.TRACE);
 
@@ -271,7 +271,7 @@ class WatcherTest {
         given(response.getStatus()).willReturn(HttpStatus.INTERNAL_SERVER_ERROR);
         final var exception = new HttpClientResponseException("boom", response);
         given(consulClient.watchValues("path/to/http_error", false, null)).willReturn(Mono.error(exception));
-        given(watchConfiguration.getWatchDelay()).willReturn(Duration.ZERO);
+        given(watchConfiguration.getDelayDuration()).willReturn(Duration.ZERO);
 
         // when
         watcher.start();
@@ -298,7 +298,7 @@ class WatcherTest {
 
         final var exception = ReadTimeoutException.TIMEOUT_EXCEPTION;
         given(consulClient.watchValues("path/to/timeout", false, null)).willReturn(Mono.error(exception));
-        given(watchConfiguration.getWatchDelay()).willReturn(Duration.ofMillis(500));
+        given(watchConfiguration.getDelayDuration()).willReturn(Duration.ofMillis(500));
 
         CLASS_LOGGER.setLevel(Level.WARN);
 
@@ -327,7 +327,7 @@ class WatcherTest {
 
         final var exception = new RuntimeException("boom");
         given(consulClient.watchValues("path/to/error_other", false, null)).willReturn(Mono.error(exception));
-        given(watchConfiguration.getWatchDelay()).willReturn(Duration.ZERO);
+        given(watchConfiguration.getDelayDuration()).willReturn(Duration.ZERO);
 
         // when
         watcher.start();
@@ -373,7 +373,7 @@ class WatcherTest {
         given(consulClient.watchValues("path/to/yaml", false, null))
                 .willThrow(exception);
 
-        given(watchConfiguration.getWatchDelay()).willReturn(Duration.ZERO);
+        given(watchConfiguration.getDelayDuration()).willReturn(Duration.ZERO);
 
         // when
         watcher.start();
@@ -420,7 +420,7 @@ class WatcherTest {
                 .willReturn(Mono.delay(Duration.ofMillis(200))
                         .thenReturn(List.of(keyValue)));
 
-        given(watchConfiguration.getWatchDelay()).willReturn(Duration.ZERO);
+        given(watchConfiguration.getDelayDuration()).willReturn(Duration.ZERO);
 
         // when
         watcher.start();

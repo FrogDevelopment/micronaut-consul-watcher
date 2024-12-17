@@ -1,6 +1,6 @@
 package com.frogdevelopment.micronaut.consul.watch;
 
-import static com.frogdevelopment.micronaut.consul.watch.WatchConfiguration.DEFAULT_WAIT_TIMEOUT_MINUTES;
+import static com.frogdevelopment.micronaut.consul.watch.WatchConfiguration.DEFAULT_MAX_WAIT_DURATION_MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -17,7 +17,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.reflect.ReflectionUtils;
-import io.micronaut.discovery.consul.ConsulConfiguration;
 
 @ExtendWith(MockitoExtension.class)
 class WatchConfigurationTest {
@@ -26,14 +25,12 @@ class WatchConfigurationTest {
     private WatchConfiguration watchConfiguration;
 
     @Mock
-    private  ConsulConfiguration consulConfiguration;
-    @Mock
     private  ConversionService conversionService;
 
     @Test
     void should_useDefaultWatchTimeout() {
         // given
-        given(conversionService.convertRequired(DEFAULT_WAIT_TIMEOUT_MINUTES, Duration.class)).willReturn(Duration.ofMinutes(10));
+        given(conversionService.convertRequired(DEFAULT_MAX_WAIT_DURATION_MINUTES, Duration.class)).willReturn(Duration.ofMinutes(10));
 
         // when
         final var readTimeout1 = watchConfiguration.getReadTimeout();
@@ -43,7 +40,7 @@ class WatchConfigurationTest {
         assertThat(readTimeout1)
                 .hasValueSatisfying(value -> assertThat(value).hasSeconds(637));
         assertThat(readTimeout2).isEqualTo(readTimeout1);
-        then(conversionService).should(times(1)).convertRequired(DEFAULT_WAIT_TIMEOUT_MINUTES, Duration.class);
+        then(conversionService).should(times(1)).convertRequired(DEFAULT_MAX_WAIT_DURATION_MINUTES, Duration.class);
     }
 
     @Test
@@ -53,7 +50,7 @@ class WatchConfigurationTest {
         given(conversionService.convertRequired("16s", Duration.class)).willReturn(Duration.ofSeconds(16));
 
         // when
-        watchConfiguration.setWaitTimeout("16s");
+        watchConfiguration.setMaxWaitDuration("16s");
 
         // then
         assertThat(getReadTimeoutValue()).hasValue(Duration.ofSeconds(17));

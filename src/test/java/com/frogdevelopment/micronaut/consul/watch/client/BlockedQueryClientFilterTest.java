@@ -46,7 +46,7 @@ class BlockedQueryClientFilterTest {
         // given
         given(request.getParameters()).willReturn(parameters);
         given(parameters.contains("index")).willReturn(true);
-        given(watchConfiguration.getWaitTimeout()).willReturn("666s");
+        given(watchConfiguration.getMaxWaitDuration()).willReturn("666s");
 
         // when
         blockedQueryClientFilter.filter(request);

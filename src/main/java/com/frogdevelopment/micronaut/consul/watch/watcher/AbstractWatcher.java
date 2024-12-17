@@ -91,7 +91,7 @@ abstract sealed class AbstractWatcher<V> implements Watcher permits Configuratio
                 return;
             }
             // delaying to avoid flood caused by multiple consecutive calls
-            final var disposable = Mono.delay(watchConfiguration.getWatchDelay())
+            final var disposable = Mono.delay(watchConfiguration.getDelayDuration())
                     .then(watchValue(kvPath))
                     .subscribe(next -> onNext(kvPath, next), throwable -> onError(kvPath, throwable));
 
